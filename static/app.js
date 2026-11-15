@@ -302,9 +302,18 @@ function drawChart(elId, r, lang = "en") {
   );
 }
 
+// Language chosen on an earlier visit; English unless the visitor picked Turkish.
+function savedLang() {
+  try {
+    return localStorage.getItem("lang") === "tr" ? "tr" : "en";
+  } catch (e) {
+    return "en";
+  }
+}
+
 function trendApp() {
   return {
-    lang: "en",
+    lang: savedLang(),
     booting: true,
     bootProgress: 0,
     bootStatus: "Initializing NASA Earthdata telemetry...",
@@ -335,6 +344,9 @@ function trendApp() {
     setLang(code) {
       this.lang = code;
       document.documentElement.lang = code;
+      try {
+        localStorage.setItem("lang", code);
+      } catch (e) {}
       if (this.sheet) {
         this.$nextTick(() => drawChart("sheet-chart", this.sheet, this.lang));
       }
@@ -397,6 +409,7 @@ function trendApp() {
     },
 
     async init() {
+      document.documentElement.lang = this.lang;
       this.startLoader();
       try {
         const res = await fetch("/api/catalog").then(r => r.json());
