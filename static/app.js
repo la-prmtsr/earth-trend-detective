@@ -323,7 +323,7 @@ function trendApp() {
     busy: false,
     error: "",
     sheet: null,
-    cmp: { var: "t2m", a: "rize", b: "konya", results: [] },
+    cmp: { var: "precip", a: "rize", b: "santiago", results: [] },
     ex: { topic: "water", place: "sapanca", type: "lake_basin", lat: 40.69, lon: 30.27 },
 
     t(key) {
