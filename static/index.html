@@ -2,499 +2,406 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Earth Trend Detective — Earth System Case Files</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2246%22 fill=%22%230B3D91%22/%3E%3Ccircle cx=%2250%22 cy=%2250%22 r=%2224%22 fill=%22%2338BDF8%22/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 28 28%22%3E%3Ccircle cx=%2214%22 cy=%2214%22 r=%2211%22 fill=%22none%22 stroke=%22%2318181B%22 stroke-width=%222%22/%3E%3Ccircle cx=%2219.5%22 cy=%229%22 r=%223%22 fill=%22%232F6B4F%22/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/vendor/plotly-basic.min.js"></script>
   <script src="/static/vendor/lucide.min.js"></script>
+  <script src="/static/vendor/d3-array.min.js"></script>
+  <script src="/static/vendor/d3-geo.min.js"></script>
+  <script src="/static/earth-land.js"></script>
+  <script src="/static/ui.js"></script>
   <script src="/static/app.js"></script>
   <script defer src="/static/vendor/alpine.min.js"></script>
 </head>
-<body x-data="trendApp()" x-init="init()" :data-theme="themeKey()">
-
-  <!-- COSMIC NASA EARTH & TELESCOPE LOADER -->
-  <div class="cosmic-loader" x-show="booting" x-transition.opacity.duration.450ms :class="{ 'is-complete': bootProgress >= 100 }">
-    <div class="cosmic-stars"></div>
-    <div class="cosmic-stage">
-      <div class="orbital-glow"></div>
-      <div class="orbital-ring"></div>
-
-      <!-- Rotating Earth + Orbiting NASA Telescope SVG -->
-      <svg class="nasa-orbiter" viewBox="0 0 260 260" width="220" height="220" aria-hidden="true">
-        <defs>
-          <radialGradient id="earthGrad" cx="38%" cy="35%" r="65%">
-            <stop offset="0%" stop-color="#38BDF8"/>
-            <stop offset="55%" stop-color="#0284C7"/>
-            <stop offset="100%" stop-color="#082F49"/>
-          </radialGradient>
-          <linearGradient id="scanBeam" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="rgba(250, 204, 21, 0.55)"/>
-            <stop offset="100%" stop-color="rgba(56, 189, 248, 0)"/>
-          </linearGradient>
-          <clipPath id="earthClip">
-            <circle cx="130" cy="145" r="54"/>
-          </clipPath>
-        </defs>
-
-        <!-- Atmospheric Halo -->
-        <circle cx="130" cy="145" r="62" fill="none" stroke="rgba(56, 189, 248, 0.28)" stroke-width="6"/>
-        <!-- Earth Globe -->
-        <circle cx="130" cy="145" r="54" fill="url(#earthGrad)"/>
-
-        <!-- Animated Rotating Continents -->
-        <g clip-path="url(#earthClip)" class="earth-continents">
-          <path d="M85,125 Q102,112 118,122 T142,118 Q154,130 144,145 T116,154 Q94,148 85,125 Z" fill="#34D399" opacity="0.82"/>
-          <path d="M148,148 Q166,142 178,155 T170,180 Q152,185 144,170 Z" fill="#10B981" opacity="0.78"/>
-          <path d="M62,158 Q78,150 92,164 T82,186 Q64,182 62,158 Z" fill="#34D399" opacity="0.72"/>
-          <!-- Repeat offset for seamless drift -->
-          <path d="M195,125 Q212,112 228,122 T252,118 Q264,130 254,145 T226,154 Q204,148 195,125 Z" fill="#34D399" opacity="0.82"/>
-        </g>
-
-        <!-- Scanner Cone from Space Telescope -->
-        <polygon points="184,68 116,136 154,158" fill="url(#scanBeam)" class="telescope-beam"/>
-
-        <!-- Space Telescope Silhouette -->
-        <g class="telescope-body" transform="translate(186, 66) rotate(-38)">
-          <!-- Solar Wings -->
-          <rect x="-26" y="-4" width="18" height="8" rx="1.5" fill="#38BDF8" stroke="#E0F2FE" stroke-width="0.8"/>
-          <rect x="8" y="-4" width="18" height="8" rx="1.5" fill="#38BDF8" stroke="#E0F2FE" stroke-width="0.8"/>
-          <!-- Main Optical Tube -->
-          <rect x="-7" y="-14" width="14" height="28" rx="3" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1"/>
-          <rect x="-8" y="-16" width="16" height="5" rx="1.5" fill="#FACC15"/>
-          <circle cx="0" cy="14" r="4" fill="#38BDF8"/>
-        </g>
-      </svg>
-
-      <div class="loader-counter">
-        <span class="loader-num" x-text="bootProgress"></span><span class="loader-pct">%</span>
-      </div>
-      <p class="loader-status" x-text="bootStatus"></p>
-      <div class="loader-track">
-        <div class="loader-fill" :style="`width: ${bootProgress}%`"></div>
-      </div>
-      <div class="loader-brand">
-        <span class="dot"></span>
-        <span>Earth Trend Detective · NASA Earth Observation</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- DARK EDITORIAL CANOPY WITH SHEER DISSOLVE -->
-  <div class="canopy-shell">
-    <div class="canopy-backdrop">
-      <div class="canopy-grid"></div>
-      <div class="canopy-glow"></div>
-      <div class="canopy-sheer"></div>
-    </div>
-
-    <!-- TOP NAVIGATION BAR -->
-    <header class="topbar">
+<body x-data="trendApp()" x-init="init()" :data-theme="themeKey()" :data-tab="tab">
+  <header class="topbar">
+    <div class="wrap topbar-inner">
       <div class="brand">
-        <div class="brand-badge" x-html="icon('telescope', 20)"></div>
+        <svg class="brand-mark" viewBox="0 0 28 28" width="28" height="28" aria-hidden="true">
+          <circle cx="14" cy="14" r="11" fill="none" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M3.5 14h21M14 3c3 3.2 4.5 6.8 4.5 11S17 21.8 14 25" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".45"/>
+          <circle cx="19.5" cy="9" r="2.6" class="brand-dot"/>
+        </svg>
         <div>
           <div class="brand-title">Earth Trend Detective</div>
-          <div class="brand-sub">Earth system case files with NASA data</div>
+          <div class="brand-sub" x-text="t('brandSub')"></div>
         </div>
       </div>
 
-      <nav class="nav-pills" role="tablist" aria-label="Case navigation">
-        <template x-for="t in tabs" :key="t.id">
-          <button role="tab" class="nav-pill" :class="{ active: tab === t.id }" @click="go(t.id)">
-            <span x-html="icon(t.icon, 15)"></span>
-            <span x-text="t.label"></span>
+      <nav class="seg nav" role="tablist" aria-label="Case navigation">
+        <template x-for="item in tabs" :key="item.id">
+          <button role="tab" :aria-selected="tab === item.id" :class="{ active: tab === item.id }" @click="go(item.id)">
+            <span class="ico" x-html="icon(item.icon, 15)"></span>
+            <span x-text="t('tab_' + item.id)"></span>
           </button>
         </template>
       </nav>
 
-      <div class="topbar-actions">
-        <div class="telemetry-chip">
-          <span class="pulse-dot"></span>
-          <span x-text="regionBadge()"></span>
+      <div class="seg seg-sm lang" role="group" aria-label="Language">
+        <button type="button" :class="{ active: lang === 'en' }" @click="setLang('en')">EN</button>
+        <button type="button" :class="{ active: lang === 'tr' }" @click="setLang('tr')">TR</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero" x-cloak x-effect="earthFocus($data)">
+    <canvas class="earth" x-init="earthInit($el)" aria-hidden="true"></canvas>
+    <div class="hero-veil" aria-hidden="true"></div>
+    <div class="wrap hero-wrap">
+      <template x-for="k in [tab]" :key="k">
+        <div class="hero-in">
+          <div class="case-meta">
+            <span class="kicker"><i></i><span x-text="heroMeta().kicker"></span></span>
+            <span class="coords"><span x-html="icon('crosshair', 13)"></span><span x-text="regionBadge()"></span></span>
+          </div>
+          <h1 x-text="heroMeta().headline"></h1>
+          <p class="case-desc" x-text="heroMeta().desc"></p>
+          <div class="sensors">
+            <span class="sensors-label" x-text="t('sensorsLabel')"></span>
+            <template x-for="s in heroMeta().sensorNote.split(' · ')" :key="s">
+              <span class="sensor" x-text="s"></span>
+            </template>
+          </div>
         </div>
-        <button class="ghost-btn" @click="replayLoader()" title="Replay NASA Orbital Intro">
-          <span x-html="icon('sparkles', 14)"></span>
-          <span>Intro</span>
-        </button>
+      </template>
+
+      <!-- Explore tab: facts are skipped because they repeat the 3 questions below -->
+      <div class="facts" x-show="tab !== 'explore'">
+        <template x-for="(k, idx) in heroKpis()" :key="tab + idx">
+          <div class="fact" :style="'--i:' + idx">
+            <div class="fact-label" x-text="k.label"></div>
+            <div class="fact-value" x-effect="countUp($el, k.value)"></div>
+            <div class="fact-foot" x-text="k.foot"></div>
+          </div>
+        </template>
       </div>
-    </header>
+    </div>
 
-    <!-- HERO STATEMENT SECTION -->
-    <section class="hero-wrap">
-      <div class="hero-kicker">
-        <span class="kicker-tag" x-text="heroMeta().kicker"></span>
-        <span class="kicker-sep">·</span>
-        <span x-text="heroMeta().sensorNote"></span>
-      </div>
-      <h1 class="hero-headline" x-text="heroMeta().headline"></h1>
-      <p class="hero-desc" x-text="heroMeta().desc"></p>
-    </section>
+  </section>
 
-    <!-- FROSTED HORIZON BAND WITH 4 VERIFIED KPI CARDS -->
-    <section class="horizon-band">
-      <div class="horizon-frame">
-        <div class="kpi-grid">
-          <template x-for="(k, idx) in heroKpis()" :key="idx">
-            <div class="kpi-card">
-              <div class="kpi-top">
-                <span class="kpi-label" x-text="k.label"></span>
-                <span class="kpi-ico" x-html="icon(k.icon, 16)"></span>
-              </div>
-              <div class="kpi-value" x-text="k.value"></div>
-              <div class="kpi-foot" x-text="k.foot"></div>
-            </div>
-          </template>
-        </div>
-      </div>
-    </section>
-  </div>
+  <main class="wrap" x-cloak>
 
-  <!-- MAIN CONTENT WORKSPACE -->
-  <main class="workspace">
-
-    <!-- CASE 1 (SAPANCA) & CASE 2 (ISTANBUL AIR) -->
+    <!-- CASE 1 & CASE 2 -->
     <template x-if="tab === 'case1' || tab === 'case2'">
-      <section>
-        <template x-if="loading">
-          <div class="panel center muted">
-            <span x-html="icon('satellite', 20)"></span>
-            <span>Loading NASA satellite records from Python engine...</span>
+      <div>
+        <section class="section">
+          <div class="section-head">
+            <h2><span x-text="t('suspectTitle')"></span> <span class="section-sub" x-text="'— ' + t('suspectSub')"></span></h2>
+            <span class="note"><span x-html="icon('shield-check', 14)"></span><span x-text="t('fdrNote')"></span></span>
           </div>
-        </template>
 
-        <template x-if="caseData[tab]?.missing?.length">
-          <div class="warn-banner">
-            <span x-html="icon('triangle-alert', 18)"></span>
-            <div>
-              <strong>Waiting for NASA CSV files:</strong>
-              <span x-text="caseData[tab].missing.join(', ')"></span>
-              <span class="warn-sub"> — Place CSVs in data/ folder to populate these suspect cards automatically.</span>
+          <template x-if="caseData[tab]?.missing?.length">
+            <div class="warn">
+              <span x-html="icon('triangle-alert', 16)"></span>
+              <div>
+                <strong x-text="t('missingTitle')"></strong>
+                <span x-text="caseData[tab].missing.join(', ')"></span>
+                <span x-text="t('missingHint')"></span>
+              </div>
             </div>
-          </div>
-        </template>
-
-        <div class="section-bar">
-          <div>
-            <h2 class="section-heading">Suspect board <span class="section-sub">— which variables are really changing?</span></h2>
-          </div>
-          <div class="fdr-note">
-            <span x-html="icon('shield-check', 15)"></span>
-            <span>Benjamini-Hochberg FDR corrected across all cards</span>
-          </div>
-        </div>
-
-        <div class="suspect-grid">
-          <template x-for="v in (caseData[tab]?.variables || [])" :key="v.id">
-            <button class="suspect-card" :class="v.significant ? 'is-sig' : 'is-uncertain'" @click="open(v)">
-              <div class="sc-head">
-                <span class="sc-icon" :class="v.significant ? 'sig' : 'unc'" x-html="icon(varIcon(v.id), 20)"></span>
-                <span class="sc-pill" :class="v.significant ? 'sig' : 'unc'" x-text="v.significant ? 'Significant change' : 'Not certain yet'"></span>
-                <span class="sc-arrow" x-html="icon('arrow-up-right', 18)"></span>
-              </div>
-              <div class="sc-title" x-text="v.name"></div>
-              <div class="sc-rate" x-text="perDecade(v)"></div>
-              <div class="sc-meta">
-                <span x-text="'p = ' + fmtP(v.p_final)"></span>
-                <span>·</span>
-                <span x-text="v.stats.years + ' yrs'"></span>
-                <span>·</span>
-                <span x-text="detectText(v)"></span>
-              </div>
-            </button>
           </template>
-        </div>
 
-        <!-- METHODOLOGY FLOW STRIP -->
-        <div class="panel flow-panel">
-          <div class="flow-head">
-            <span class="flow-badge" x-html="icon('git-commit-horizontal', 18)"></span>
-            <div>
-              <h3>How trend detection works</h3>
-              <p>All numbers are computed deterministically by Python (<code>core/stats_engine.py</code>); no AI model generates or estimates statistics.</p>
+          <template x-if="loading">
+            <div class="loading"><span class="spinner"></span><span x-text="t('loadingRecords')"></span></div>
+          </template>
+
+          <div class="board" x-show="!loading && (caseData[tab]?.variables || []).length">
+            <div class="board-head">
+              <span></span>
+              <span x-text="t('colVar')"></span>
+              <span x-text="t('colShape')"></span>
+              <span x-text="t('colTrend')"></span>
+              <span>p</span>
+              <span x-text="t('colRecord')"></span>
+              <span x-text="t('colDetect')"></span>
+              <span x-text="t('colStatus')"></span>
+              <span></span>
             </div>
+            <template x-for="(v, i) in (caseData[tab]?.variables || [])" :key="tab + v.id">
+              <button class="board-row" :style="'--i:' + i" @click="open(v)">
+                <span class="br-ico tile" :class="topicClass(v.id)" x-html="icon(varIcon(v.id), 17)"></span>
+                <span class="br-name">
+                  <strong x-text="varName(v)"></strong>
+                  <small x-text="v.source"></small>
+                </span>
+                <span class="br-spark" x-html="spark(v)"></span>
+                <span class="num br-rate" :class="v.significant ? 'sig' : ''" x-text="perDecade(v)"></span>
+                <span class="num br-p" x-text="fmtP(v.p_final)"></span>
+                <span class="num br-yrs" x-text="v.stats.years + ' ' + t('yrsUnit')"></span>
+                <span class="br-detect" x-text="detectText(v)"></span>
+                <span class="br-meta-m num" x-text="'p ' + fmtP(v.p_final) + ' · ' + v.stats.years + ' ' + t('yrsUnit') + ' · ' + detectText(v)"></span>
+                <span class="status" :class="v.significant ? 'sig' : 'unc'"><i></i><span x-text="v.significant ? t('sigPill') : t('uncPill')"></span></span>
+                <span class="br-chev" x-html="icon('chevron-right', 16)"></span>
+              </button>
+            </template>
           </div>
-          <div class="flow-steps">
-            <div class="flow-step">
-              <div class="fs-icon" x-html="icon('satellite', 18)"></div>
-              <div class="fs-title">1. NASA Time Series</div>
-              <div class="fs-desc">Monthly satellite &amp; reanalysis series (2000–2026)</div>
-            </div>
-            <div class="flow-arrow" x-html="icon('arrow-right', 16)"></div>
-            <div class="flow-step">
-              <div class="fs-icon" x-html="icon('calendar-range', 18)"></div>
-              <div class="fs-title">2. Seasonal Removal</div>
-              <div class="fs-desc">Subtract monthly climatology to expose anomalies</div>
-            </div>
-            <div class="flow-arrow" x-html="icon('arrow-right', 16)"></div>
-            <div class="flow-step">
-              <div class="fs-icon" x-html="icon('trending-up', 18)"></div>
-              <div class="fs-title">3. Sen's Slope &amp; MK</div>
-              <div class="fs-desc">Autocorrelation-corrected Hamed-Rao significance test</div>
-            </div>
-            <div class="flow-arrow" x-html="icon('arrow-right', 16)"></div>
-            <div class="flow-step">
-              <div class="fs-icon" x-html="icon('hourglass', 18)"></div>
-              <div class="fs-title">4. FDR &amp; Years Needed</div>
-              <div class="fs-desc">Multi-test adjustment &amp; Weatherhead detection horizon</div>
-            </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2 x-text="t('flowTitle')"></h2>
           </div>
-        </div>
-      </section>
+          <p class="method-desc" x-text="t('flowDesc')"></p>
+          <ol class="steps">
+            <li class="step"><span class="step-ico" x-html="icon('satellite', 16)"></span><div class="step-t" x-text="t('step1Title')"></div><div class="step-d" x-text="t('step1Desc')"></div></li>
+            <li class="step"><span class="step-ico" x-html="icon('calendar-range', 16)"></span><div class="step-t" x-text="t('step2Title')"></div><div class="step-d" x-text="t('step2Desc')"></div></li>
+            <li class="step"><span class="step-ico" x-html="icon('trending-up', 16)"></span><div class="step-t" x-text="t('step3Title')"></div><div class="step-d" x-text="t('step3Desc')"></div></li>
+            <li class="step"><span class="step-ico" x-html="icon('hourglass', 16)"></span><div class="step-t" x-text="t('step4Title')"></div><div class="step-d" x-text="t('step4Desc')"></div></li>
+          </ol>
+        </section>
+      </div>
     </template>
 
-    <!-- CASE 3: TWO REGIONS COMPARISON -->
+    <!-- CASE 3: TWO REGIONS -->
     <template x-if="tab === 'compare'">
-      <section>
-        <div class="panel form-panel">
-          <div class="form-group">
-            <label class="field-label">1. Select NASA Variable (Live POWER API)</label>
-            <div class="chip-row">
-              <template x-for="v in liveVars()" :key="v.id">
-                <button class="chip" :class="{ on: cmp.var === v.id }" @click="cmp.var = v.id">
-                  <span x-html="icon(varIcon(v.id), 15)"></span>
-                  <span x-text="v.name"></span>
-                </button>
-              </template>
-            </div>
-          </div>
-
-          <div class="two-col">
-            <div>
-              <label class="field-label">2. Region A</label>
-              <select class="select-input" x-model="cmp.a">
-                <template x-for="(p, k) in places" :key="k">
-                  <option :value="k" x-text="p.name"></option>
+      <div>
+        <section class="section">
+          <div class="panel">
+            <div class="field">
+              <label class="label" x-text="t('cmpStep1')"></label>
+              <div class="chips">
+                <template x-for="v in liveVars()" :key="v.id">
+                  <button class="chip" :class="{ on: cmp.var === v.id }" @click="cmp.var = v.id">
+                    <span x-html="icon(varIcon(v.id), 15)"></span>
+                    <span x-text="varName(v)"></span>
+                  </button>
                 </template>
-              </select>
+              </div>
             </div>
-            <div>
-              <label class="field-label">3. Region B</label>
-              <select class="select-input" x-model="cmp.b">
-                <template x-for="(p, k) in places" :key="k">
-                  <option :value="k" x-text="p.name"></option>
-                </template>
-              </select>
+
+            <div class="grid2 field">
+              <div>
+                <label class="label" x-text="t('cmpStep2')"></label>
+                <select class="input" x-model="cmp.a">
+                  <template x-for="(p, k) in places" :key="k">
+                    <option :value="k" x-text="p.name" :selected="k === cmp.a"></option>
+                  </template>
+                </select>
+              </div>
+              <div>
+                <label class="label" x-text="t('cmpStep3')"></label>
+                <select class="input" x-model="cmp.b">
+                  <template x-for="(p, k) in places" :key="k">
+                    <option :value="k" x-text="p.name" :selected="k === cmp.b"></option>
+                  </template>
+                </select>
+              </div>
             </div>
-          </div>
 
-          <div class="form-actions">
-            <button class="primary-btn" @click="compare()" :disabled="busy">
-              <span x-html="icon('arrow-left-right', 17)"></span>
-              <span x-text="busy ? 'Fetching NASA POWER series...' : 'Compare Two Regions'"></span>
-            </button>
+            <div class="actions">
+              <button class="btn" @click="compare()" :disabled="busy">
+                <span x-show="busy" class="spinner light"></span>
+                <span x-show="!busy" x-html="icon('arrow-left-right', 16)"></span>
+                <span x-text="busy ? t('fetchingPower') : t('compareBtn')"></span>
+              </button>
+            </div>
+            <p class="error" x-show="error" x-text="error"></p>
           </div>
-          <p class="error-msg" x-show="error" x-text="error"></p>
-        </div>
+        </section>
 
-        <div class="two-col" x-show="cmp.results.length">
+        <section class="section grid2 results" :class="{ empty: !cmp.results.length }">
           <template x-for="(r, i) in cmp.results" :key="i">
-            <div class="panel result-card">
-              <div class="rc-head">
-                <span class="sc-icon small" :class="r.significant ? 'sig' : 'unc'" x-html="icon('map-pin', 16)"></span>
-                <strong class="rc-place" x-text="places[i === 0 ? cmp.a : cmp.b]?.name"></strong>
-                <span class="sc-pill" :class="r.significant ? 'sig' : 'unc'" x-text="r.significant ? 'Significant' : 'Not certain'"></span>
+            <article class="panel result">
+              <div class="r-head">
+                <span class="r-place"><span x-html="icon('map-pin', 15)"></span><span x-text="places[i === 0 ? cmp.a : cmp.b]?.name"></span></span>
+                <span class="status" :class="r.significant ? 'sig' : 'unc'"><i></i><span x-text="r.significant ? t('sigShort') : t('uncShort')"></span></span>
               </div>
-              <div class="rc-rate" x-text="perDecade(r)"></div>
-              <div class="chart-box" :id="'cmp-chart-' + i"></div>
-              <p class="rc-exp" x-text="r.explanation"></p>
-              <button class="link-btn" @click="open(r)">
-                <span>Inspect full 5-metric proof</span>
-                <span x-html="icon('chevron-right', 16)"></span>
+              <div class="r-rate num" x-text="perDecade(r)"></div>
+              <div class="chart" :id="'cmp-chart-' + i"></div>
+              <p class="r-exp" x-text="r.explanation"></p>
+              <button class="link" @click="open(r)">
+                <span x-text="t('inspectProof')"></span>
+                <span x-html="icon('chevron-right', 15)"></span>
               </button>
-            </div>
+            </article>
           </template>
-        </div>
-      </section>
+        </section>
+      </div>
     </template>
 
-    <!-- TAB 4: EXPLORE ANYWHERE (3 GUIDED QUESTIONS) -->
+    <!-- EXPLORE -->
     <template x-if="tab === 'explore'">
-      <section>
-        <div class="panel form-panel">
-          <div class="form-group">
-            <label class="field-label"><span class="step-num">1</span> What do you want to investigate?</label>
-            <div class="chip-row">
-              <template x-for="(name, k) in catalog.topics" :key="k">
-                <button class="chip" :class="{ on: ex.topic === k }" @click="ex.topic = k">
-                  <span x-html="icon(topicIcon(k), 15)"></span>
-                  <span x-text="name"></span>
-                </button>
-              </template>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="field-label"><span class="step-num">2</span> Where?</label>
-            <div class="chip-row">
-              <template x-for="(p, k) in places" :key="k">
-                <button class="chip" :class="{ on: ex.place === k }" @click="pickPlace(k)">
-                  <span x-html="icon('map-pin', 15)"></span>
-                  <span x-text="p.name"></span>
-                </button>
-              </template>
-              <button class="chip" :class="{ on: ex.place === 'custom' }" @click="ex.place = 'custom'">
-                <span x-html="icon('compass', 15)"></span>
-                <span>Custom coordinates</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="two-col" x-show="ex.place === 'custom'">
-            <div>
-              <label class="field-label">Latitude (-90 to 90)</label>
-              <input class="text-input" type="number" step="0.01" x-model.number="ex.lat">
-            </div>
-            <div>
-              <label class="field-label">Longitude (-180 to 180)</label>
-              <input class="text-input" type="number" step="0.01" x-model.number="ex.lon">
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="field-label"><span class="step-num">3</span> What kind of place is it?</label>
-            <div class="chip-row">
-              <template x-for="(name, k) in catalog.place_types" :key="k">
-                <button class="chip" :class="{ on: ex.type === k }" @click="ex.type = k">
-                  <span x-html="icon(placeIcon(k), 15)"></span>
-                  <span x-text="name"></span>
-                </button>
-              </template>
-            </div>
-          </div>
-        </div>
-
-        <div class="section-bar">
-          <h2 class="section-heading">Suggested NASA variables <span class="section-sub">— tailored to your place type</span></h2>
-        </div>
-
-        <div class="panel list-panel">
-          <template x-for="v in suggestions()" :key="v.id">
-            <div class="list-row">
-              <span class="sc-icon small info" x-html="icon(varIcon(v.id), 16)"></span>
-              <div class="lr-text">
-                <strong x-text="v.name"></strong>
-                <small x-text="v.definition"></small>
+      <div>
+        <section class="section">
+          <div class="panel">
+            <div class="field">
+              <label class="label"><span class="n">1</span><span x-text="t('exQ1')"></span></label>
+              <div class="chips">
+                <template x-for="(name, k) in catalog.topics" :key="k">
+                  <button class="chip" :class="{ on: ex.topic === k }" @click="ex.topic = k">
+                    <span x-html="icon(topicIcon(k), 15)"></span>
+                    <span x-text="topicName(k, name)"></span>
+                  </button>
+                </template>
               </div>
-              <template x-if="v.power_param">
-                <button class="primary-btn small" @click="analyzeLive(v.id)" :disabled="busy">
-                  <span x-text="busy ? 'Analyzing...' : 'Analyze Live'"></span>
-                </button>
-              </template>
-              <template x-if="!v.power_param">
-                <span class="sc-pill unc">In case files</span>
-              </template>
             </div>
-          </template>
-          <template x-if="!suggestions().length">
-            <div class="list-row muted">No variable in the catalog matches this combination yet.</div>
-          </template>
-        </div>
-        <p class="error-msg" x-show="error" x-text="error"></p>
-      </section>
+
+            <div class="field">
+              <label class="label"><span class="n">2</span><span x-text="t('exQ2')"></span></label>
+              <div class="chips">
+                <template x-for="(p, k) in places" :key="k">
+                  <button class="chip" :class="{ on: ex.place === k }" @click="pickPlace(k)">
+                    <span x-html="icon('map-pin', 15)"></span>
+                    <span x-text="p.name"></span>
+                  </button>
+                </template>
+                <button class="chip" :class="{ on: ex.place === 'custom' }" @click="ex.place = 'custom'">
+                  <span x-html="icon('compass', 15)"></span>
+                  <span x-text="t('customCoords')"></span>
+                </button>
+              </div>
+              <div class="grid2 coords-row" x-show="ex.place === 'custom'">
+                <div>
+                  <label class="label sub" x-text="t('latLabel')"></label>
+                  <input class="input" type="number" step="0.01" x-model.number="ex.lat">
+                </div>
+                <div>
+                  <label class="label sub" x-text="t('lonLabel')"></label>
+                  <input class="input" type="number" step="0.01" x-model.number="ex.lon">
+                </div>
+              </div>
+            </div>
+
+            <div class="field">
+              <label class="label"><span class="n">3</span><span x-text="t('exQ3')"></span></label>
+              <div class="chips">
+                <template x-for="(name, k) in catalog.place_types" :key="k">
+                  <button class="chip" :class="{ on: ex.type === k }" @click="ex.type = k">
+                    <span x-html="icon(placeIcon(k), 15)"></span>
+                    <span x-text="placeTypeName(k, name)"></span>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-head">
+            <h2><span x-text="t('suggestedTitle')"></span> <span class="section-sub" x-text="'— ' + t('suggestedSub')"></span></h2>
+          </div>
+          <div class="list">
+            <template x-for="v in suggestions()" :key="v.id">
+              <div class="list-row">
+                <span class="br-ico tile" :class="topicClass(v.id)" x-html="icon(varIcon(v.id), 17)"></span>
+                <div class="lr-text">
+                  <strong x-text="varName(v)"></strong>
+                  <small x-text="v.definition"></small>
+                </div>
+                <template x-if="v.power_param">
+                  <button class="btn sm" @click="analyzeLive(v.id)" :disabled="busy">
+                    <span x-text="busy ? t('analyzing') : t('analyzeLive')"></span>
+                  </button>
+                </template>
+                <template x-if="!v.power_param">
+                  <span class="tag" x-text="t('inCaseFiles')"></span>
+                </template>
+              </div>
+            </template>
+            <template x-if="!suggestions().length">
+              <div class="list-row empty" x-text="t('noMatch')"></div>
+            </template>
+          </div>
+          <p class="error" x-show="error" x-text="error"></p>
+        </section>
+      </div>
     </template>
+
+    <footer class="footer">
+      <span x-text="t('footerText')"></span>
+    </footer>
   </main>
 
-  <!-- BOTTOM SHEET DETAIL DRAWER -->
-  <div class="sheet-backdrop" x-show="sheet" x-transition.opacity @click="sheet = null"></div>
-  <aside class="detail-sheet" x-show="sheet" x-transition:enter="sheet-in" x-transition:leave="sheet-out" @keydown.escape.window="sheet = null">
+  <!-- DETAIL SHEET -->
+  <div class="backdrop" x-show="sheet" x-cloak x-transition.opacity @click="sheet = null"></div>
+  <aside class="sheet" x-show="sheet" x-cloak x-transition:enter="sheet-in" x-transition:leave="sheet-out" @keydown.escape.window="sheet = null" role="dialog" aria-modal="true">
     <template x-if="sheet">
-      <div>
-        <div class="sheet-grabber"></div>
+      <div class="sheet-inner">
+        <div class="grabber"></div>
 
-        <div class="sheet-header">
-          <span class="sc-icon" :class="sheet.significant ? 'sig' : 'unc'" x-html="icon(varIcon(sheet.id), 22)"></span>
+        <div class="sh-head">
+          <span class="sh-ico tile" :class="topicClass(sheet.id)" x-html="icon(varIcon(sheet.id), 20)"></span>
           <div class="sh-titles">
-            <h2 x-text="sheet.name"></h2>
+            <h2 x-text="varName(sheet)"></h2>
             <small x-text="sheet.source"></small>
           </div>
-          <button class="close-btn" @click="sheet = null" aria-label="Close detail sheet" x-html="icon('x', 20)"></button>
+          <button class="close" @click="sheet = null" aria-label="Close" x-html="icon('x', 18)"></button>
         </div>
 
-        <p class="sheet-def">
-          <span x-html="icon('info', 16)"></span>
-          <span x-text="sheet.definition"></span>
-        </p>
+        <p class="def" x-text="sheet.definition"></p>
 
-        <!-- PLOTLY TIME-SERIES & SEN'S SLOPE CHART -->
-        <div class="chart-box big" id="sheet-chart"></div>
+        <div class="chart big" id="sheet-chart"></div>
 
-        <!-- QUICK GUIDE FOR LAY READERS -->
-        <div class="quick-guide">
-          <span x-html="icon('compass', 16)"></span>
-          <span><strong>Quick guide:</strong> Check the 10-year change first, then see if the p-value is below 0.05 to know if it is real.</span>
-        </div>
+        <p class="guide"><strong x-text="t('quickGuideLabel')"></strong> <span x-text="t('quickGuideText')"></span></p>
 
-        <!-- 5 METRICS GRID WITH PLAIN-ENGLISH MICRO-COPY -->
-        <div class="metrics-grid">
-          <div class="metric-box">
-            <small class="mb-label">1. Trend per decade</small>
-            <strong class="mb-val" x-text="perDecade(sheet)"></strong>
-            <p class="mb-help" x-text="metricHelp(sheet, 'trend')"></p>
+        <div class="metrics">
+          <div class="metric">
+            <span class="m-label" x-text="t('m1Label')"></span>
+            <strong class="m-val" x-text="perDecade(sheet)"></strong>
+            <p class="m-help" x-text="metricHelp(sheet, 'trend')"></p>
           </div>
-          <div class="metric-box">
-            <small class="mb-label">2. 95% range per decade</small>
-            <strong class="mb-val" x-text="range(sheet)"></strong>
-            <p class="mb-help" x-text="metricHelp(sheet, 'range')"></p>
+          <div class="metric">
+            <span class="m-label" x-text="t('m2Label')"></span>
+            <strong class="m-val" x-text="range(sheet)"></strong>
+            <p class="m-help" x-text="metricHelp(sheet, 'range')"></p>
           </div>
-          <div class="metric-box">
-            <small class="mb-label">3. Corrected p-value</small>
-            <strong class="mb-val" x-text="fmtP(sheet.p_final)"></strong>
-            <p class="mb-help" x-text="metricHelp(sheet, 'pvalue')"></p>
+          <div class="metric">
+            <span class="m-label" x-text="t('m3Label')"></span>
+            <strong class="m-val" x-text="fmtP(sheet.p_final)"></strong>
+            <p class="m-help" x-text="metricHelp(sheet, 'pvalue')"></p>
           </div>
-          <div class="metric-box">
-            <small class="mb-label">4. Years of data</small>
-            <strong class="mb-val" x-text="sheet.stats.years + ' yrs'"></strong>
-            <p class="mb-help" x-text="metricHelp(sheet, 'years')"></p>
+          <div class="metric">
+            <span class="m-label" x-text="t('m4Label')"></span>
+            <strong class="m-val" x-text="sheet.stats.years + ' ' + t('yrsUnit')"></strong>
+            <p class="m-help" x-text="metricHelp(sheet, 'years')"></p>
           </div>
-          <div class="metric-box">
-            <small class="mb-label">5. Data needed to confirm</small>
-            <strong class="mb-val" x-text="detectText(sheet)"></strong>
-            <p class="mb-help" x-text="metricHelp(sheet, 'detect')"></p>
+          <div class="metric">
+            <span class="m-label" x-text="t('m5Label')"></span>
+            <strong class="m-val" x-text="detectText(sheet)"></strong>
+            <p class="m-help" x-text="metricHelp(sheet, 'detect')"></p>
           </div>
         </div>
 
-        <!-- COMBINED TAKEAWAY (ALL 5 METRICS SYNTHESIZED) -->
-        <div class="combined-box" :class="sheet.significant ? 'sig' : 'unc'">
-          <div class="cb-head">
-            <span x-html="icon(sheet.significant ? 'circle-check' : 'circle-help', 20)"></span>
-            <span class="cb-badge" x-text="combinedSummary(sheet).badge"></span>
+        <div class="takeaway" :class="sheet.significant ? 'sig' : 'unc'">
+          <div class="tk-badge">
+            <span x-html="icon(sheet.significant ? 'circle-check' : 'circle-help', 16)"></span>
+            <span x-text="combinedSummary(sheet).badge"></span>
           </div>
-          <p class="cb-lead" x-text="combinedSummary(sheet).lead"></p>
-          <p class="cb-official" x-text="sheet.explanation"></p>
+          <p class="tk-lead" x-text="combinedSummary(sheet).lead"></p>
+          <p class="tk-official" x-text="sheet.explanation"></p>
         </div>
 
-        <!-- NAIVE VS CORRECTED STATISTICAL COMPARISON -->
-        <h3 class="sheet-subhead">Simple regression vs. corrected tests</h3>
-        <div class="panel list-panel compact">
-          <div class="list-row">
-            <span class="lr-text">Simple regression on raw data (naive)</span>
-            <span class="sc-pill" :class="pClass(sheet.stats.naive.p)" x-text="'p = ' + fmtP(sheet.stats.naive.p)"></span>
+        <h3 x-text="t('naiveTitle')"></h3>
+        <div class="tests">
+          <div class="test-row">
+            <span x-text="t('naiveRow1')"></span>
+            <span class="p" :class="pClass(sheet.stats.naive.p)" x-text="'p = ' + fmtP(sheet.stats.naive.p)"></span>
           </div>
-          <div class="list-row">
-            <span class="lr-text">Seasonal Mann-Kendall</span>
-            <span class="sc-pill" :class="pClass(sheet.stats.seasonal_mk_p)" x-text="'p = ' + fmtP(sheet.stats.seasonal_mk_p)"></span>
+          <div class="test-row">
+            <span x-text="t('naiveRow2')"></span>
+            <span class="p" :class="pClass(sheet.stats.seasonal_mk_p)" x-text="'p = ' + fmtP(sheet.stats.seasonal_mk_p)"></span>
           </div>
-          <div class="list-row">
-            <span class="lr-text">Mann-Kendall, autocorrelation-corrected (Hamed-Rao)</span>
-            <span class="sc-pill" :class="pClass(sheet.stats.hamed_rao_p)" x-text="'p = ' + fmtP(sheet.stats.hamed_rao_p)"></span>
+          <div class="test-row">
+            <span x-text="t('naiveRow3')"></span>
+            <span class="p" :class="pClass(sheet.stats.hamed_rao_p)" x-text="'p = ' + fmtP(sheet.stats.hamed_rao_p)"></span>
           </div>
         </div>
         <p class="naive-note" x-text="sheet.naive_vs_correct"></p>
 
-        <div class="sheet-footer">
-          <button class="secondary-btn" @click="downloadCsv(sheet)">
-            <span x-html="icon('download', 17)"></span>
-            <span>Download Monthly Series CSV</span>
+        <div class="sheet-foot">
+          <button class="btn ghost" @click="downloadCsv(sheet)">
+            <span x-html="icon('download', 16)"></span>
+            <span x-text="t('downloadCsv')"></span>
           </button>
         </div>
       </div>
     </template>
   </aside>
-
-  <footer class="site-footer">
-    <span x-html="icon('satellite', 15)"></span>
-    <span>Numbers are computed by deterministic Python code; explanations are template-based. Data: NASA GPM, GLDAS, MERRA-2, MODIS, OMI, AIRS, POWER.</span>
-  </footer>
-
 </body>
+
 </html>
