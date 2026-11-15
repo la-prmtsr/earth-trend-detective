@@ -1,6 +1,6 @@
-"""Sonucu sade cumleye ceviren SABLON (LLM yok, sayi uydurma riski yok).
-Istege bagli: ekip bir LLM API'si kullanirsa, LLM'e SADECE bu fonksiyonun urettigi
-metni ve sayilari verip 'daha sade yaz' denebilir. Sayilari LLM'e hesaplatmayin."""
+"""TEMPLATE that turns a result into a plain sentence.
+No language model is involved, so a number can never be invented: every figure in the text
+comes straight from core/stats_engine.py."""
 
 ALPHA = 0.05
 
@@ -14,7 +14,7 @@ def explain(name: str, unit: str, r: dict, p_adj: float | None = None) -> str:
     lo, hi = r["ci95"]
     p = p_adj if p_adj is not None else r["hamed_rao_p"]
     direction = "increasing" if slope > 0 else "decreasing"
-    text = (f"{name} is {direction} by about {slope * 10:+.3g} {unit} per decade "
+    text = (f"{name} is {direction} by about {abs(slope) * 10:.3g} {unit} per decade "
             f"(95% range: {lo * 10:+.3g} to {hi * 10:+.3g}) over {r['years']} years. ")
     if p < ALPHA:
         text += f"This trend is unlikely to be chance (corrected {fmt_p(p)})."
