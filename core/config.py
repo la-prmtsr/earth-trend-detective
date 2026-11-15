@@ -45,6 +45,7 @@ PLACES = {  # approximate coordinates
     "istanbul": {"name": "Istanbul", "lat": 41.01, "lon": 28.98, "type": "big_city"},
     "konya": {"name": "Konya", "lat": 37.87, "lon": 32.49, "type": "dry_inland"},
     "rize": {"name": "Rize", "lat": 41.02, "lon": 40.52, "type": "coast_forest"},
-    # Case 3 opposite-trend pair: chosen from the output of scripts/find_opposite_pairs.py.
+    # Found with scripts/find_opposite_pairs.py (POWER precipitation decreasing here). It is not the default
+    # Two regions pair: the POWER increase at Rize it was paired with is not confirmed by GPM IMERG (2000-2025).
     "santiago": {"name": "Santiago (Chile)", "lat": -33.45, "lon": -70.67, "type": "big_city"},
 }

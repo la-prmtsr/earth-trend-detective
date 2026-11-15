@@ -1,15 +1,21 @@
 """Candidate scan for Case 3: in which two places does the same variable trend in OPPOSITE directions?
 Usage (from the project folder):  python scripts/find_opposite_pairs.py
 Uses live NASA POWER data and the same analyze() as the app; no number is typed in by hand.
-Output: a slope/p table per place for each variable, and the strongest opposite pair."""
+Output: a slope/p table per place for each variable, and the strongest opposite pair.
+
+The scan runs many tests (places x variables) and then picks the striking ones, so significance is
+judged on the Benjamini-Hochberg adjusted p across the WHOLE scan, not on each raw p.
+A pair found here is a candidate only: POWER is a single, reanalysis-based product, so check it against
+an independent dataset (for precipitation, GPM IMERG) before presenting it."""
 import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from core.data_sources import fetch_power  # noqa: E402
-from core.stats_engine import analyze  # noqa: E402
+from core.stats_engine import analyze, fdr_adjust  # noqa: E402
 
+ALPHA = 0.05
 CANDIDATES = {  # approximate coordinates (latitude, longitude)
     "Sapanca Lake": (40.69, 30.27), "Istanbul": (41.01, 28.98), "Konya": (37.87, 32.49),
     "Rize": (41.02, 40.52), "Antalya": (36.89, 30.71), "Izmir": (38.42, 27.14),
@@ -23,7 +29,7 @@ PARAMS = {"PRECTOTCORR": "Precipitation (mm/day)", "GWETROOT": "Root-zone soil w
 
 
 def main():
-    rows = {p: [] for p in PARAMS}
+    results = {}  # (place, param) -> (slope per decade, corrected p, seasonal MK p)
     for place, (lat, lon) in CANDIDATES.items():
         try:
             df = fetch_power(lat, lon, params=tuple(PARAMS))
@@ -32,19 +38,27 @@ def main():
             continue
         for p in PARAMS:
             r = analyze(df[p].dropna())
-            rows[p].append((place, r["sen_slope_per_year"] * 10, r["hamed_rao_p"], r["seasonal_mk_p"]))
+            results[(place, p)] = (r["sen_slope_per_year"] * 10, r["hamed_rao_p"], r["seasonal_mk_p"])
+
+    p_adj = fdr_adjust({k: v[1] for k, v in results.items()})  # one family: every test in the scan
+    print(f"{len(results)} tests in the scan; 'BH p' is adjusted across all of them.")
+
     for p, label in PARAMS.items():
+        rows = sorted((k for k in results if k[1] == p), key=lambda k: results[k][0])
         print(f"\n== {label}: trend per decade ==")
-        for place, slope, p_hr, p_smk in sorted(rows[p], key=lambda x: x[1]):
-            flag = "SIGNIFICANT" if p_hr < 0.05 else ""
-            print(f"  {place:22s} {slope:+9.4f}   corrected p={p_hr:.4f}   seasonal MK p={p_smk:.4f}  {flag}")
-        up = [x for x in rows[p] if x[1] > 0 and x[2] < 0.05]
-        down = [x for x in rows[p] if x[1] < 0 and x[2] < 0.05]
+        for k in rows:
+            slope, p_hr, p_smk = results[k]
+            flag = "SIGNIFICANT" if p_adj[k] < ALPHA else ""
+            print(f"  {k[0]:22s} {slope:+9.4f}   corrected p={p_hr:.4f}   BH p={p_adj[k]:.4f}   "
+                  f"seasonal MK p={p_smk:.4f}  {flag}")
+        up = [k for k in rows if results[k][0] > 0 and p_adj[k] < ALPHA]
+        down = [k for k in rows if results[k][0] < 0 and p_adj[k] < ALPHA]
         if up and down:
-            a, b = max(up, key=lambda x: x[1]), min(down, key=lambda x: x[1])
-            print(f"  -> opposite and both significant: {a[0]} ({a[1]:+.4f}) vs {b[0]} ({b[1]:+.4f})")
+            a, b = max(up, key=lambda k: results[k][0]), min(down, key=lambda k: results[k][0])
+            print(f"  -> candidate pair (both significant after BH): {a[0]} ({results[a][0]:+.4f}) "
+                  f"vs {b[0]} ({results[b][0]:+.4f}); check against an independent dataset before use")
         else:
-            print("  -> no pair where both directions are significant")
+            print("  -> no pair where both directions are significant after BH")
 
 
 if __name__ == "__main__":

@@ -16,14 +16,16 @@ def explain(name: str, unit: str, r: dict, p_adj: float | None = None) -> str:
     direction = "increasing" if slope > 0 else "decreasing"
     text = (f"{name} is {direction} by about {abs(slope) * 10:.3g} {unit} per decade "
             f"(95% range: {lo * 10:+.3g} to {hi * 10:+.3g}) over {r['years']} years. ")
+    label = "FDR-adjusted" if p_adj is not None else "autocorrelation-corrected"
     if p < ALPHA:
-        text += f"This trend is unlikely to be chance (corrected {fmt_p(p)})."
+        text += f"This trend is statistically significant ({label} {fmt_p(p)})."
     else:
         need = r["years_to_detect"]
-        text += f"We can't be sure yet: this could still be chance (corrected {fmt_p(p)}). "
+        text += f"No statistically significant trend was detected ({label} {fmt_p(p)}). "
         if need != float("inf"):
-            text += (f"At this rate and noise level, about {need:.0f} years of data would be needed "
-                     f"to confirm it (we have {r['years']}). No evidence is not the same as no risk.")
+            text += (f"As a rough estimate, if this rate and noise level continue, a record of about {need:.0f} "
+                     f"years in total would be needed to detect it (we have {r['years']}). "
+                     "Not significant does not mean no change.")
     return text
 
 
@@ -36,4 +38,4 @@ def naive_vs_correct(r: dict) -> str:
         return ("A simple regression calls this trend significant, but after removing the seasonal cycle "
                 "and correcting for autocorrelation it is not. Simple methods can see trends that are not there.")
     return ("A simple regression on the raw data misses this trend because the seasonal cycle hides it; "
-            "the corrected test finds it. Simple methods can also miss real trends.")
+            "after removing the seasonal cycle, the corrected tests find it. Simple methods can also miss real trends.")

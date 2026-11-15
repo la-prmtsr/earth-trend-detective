@@ -90,6 +90,9 @@ def result_payload(var_id: str, s, p_adj: float | None = None, r: dict | None = 
         "values": list(s.values), "anomaly": list(anom.values),
         "trend": list(b + r["sen_slope_per_year"] * t),
         "stats": r, "p_final": p, "significant": bool(p < 0.05),
+        # p_final is the FDR-adjusted p on a case board, the raw corrected-test p elsewhere
+        "p_raw": r["hamed_rao_p"], "p_kind": "fdr_bh" if p_adj is not None else "raw",
+        "p_method": r.get("acp_method", "hamed_rao"),
         "explanation": explain(v["name"], unit, r, p_adj),
         "naive_vs_correct": naive_vs_correct(r),
         "events": [{k: e[k] for k in ("start", "end", "label")} for e in (events or [])],

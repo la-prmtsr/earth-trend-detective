@@ -23,7 +23,7 @@ const I18N = {
     uncShort: "Not certain",
     yrsUnit: "yrs",
     decadeUnit: "decade",
-    alreadyDetected: "Already detected",
+    alreadyDetected: "Already significant",
     yrsTotal: "yrs total",
     veryLong: "Very long",
     flowTitle: "How trend detection works",
@@ -58,17 +58,19 @@ const I18N = {
     comingSoon: "Coming soon",
     noMatch: "No variable in the catalog matches this combination yet.",
     quickGuideLabel: "Quick guide:",
-    quickGuideText: "Check the 10-year change first, then see if the p-value is below 0.05 to know if it is real.",
+    quickGuideText: "Check the 10-year change first, then see if the p-value is below 0.05 to know if it is statistically significant.",
     m1Label: "1. Trend per decade",
     m2Label: "2. 95% range per decade",
-    m3Label: "3. Corrected p-value",
+    m3Label: "3. p-value (autocorrelation-corrected)",
+    m3LabelFdr: "3. p-value (FDR-adjusted across this board)",
     m4Label: "4. Years of data",
-    m5Label: "5. Data needed to confirm",
+    m5Label: "5. Estimated record length needed",
     naiveTitle: "Simple regression vs. corrected tests",
     naiveRow1: "Simple regression on raw data (naive)",
     naiveRow2: "Seasonal Mann-Kendall",
-    naiveRow3: "Mann-Kendall, autocorrelation-corrected (Hamed-Rao)",
+    naiveRow3: "Mann-Kendall, autocorrelation-corrected",
     naiveRow4: "t-test on anomalies, autocorrelation-corrected",
+    naiveRow5: "t-test on anomalies (seasonal cycle removed), no autocorrelation correction",
     downloadCsv: "Download Monthly Series CSV",
     footerText: "Numbers are computed by deterministic Python code; explanations are template-based. Data: NASA GPM, GLDAS, MERRA-2, MODIS, OMI, AIRS, POWER.",
     chartAnomaly: "Monthly anomaly (season removed)",
@@ -104,7 +106,7 @@ const I18N = {
     uncShort: "Kesin değil",
     yrsUnit: "yıl",
     decadeUnit: "on yıl",
-    alreadyDetected: "Tespit edildi",
+    alreadyDetected: "Zaten anlamlı",
     yrsTotal: "yıl toplam",
     veryLong: "Çok uzun",
     flowTitle: "Trend tespiti nasıl çalışır?",
@@ -139,17 +141,19 @@ const I18N = {
     comingSoon: "Yakında",
     noMatch: "Bu kombinasyonla eşleşen bir değişken henüz katalogda yok.",
     quickGuideLabel: "Hızlı rehber:",
-    quickGuideText: "Önce 10 yıllık değişime bakın, ardından değişimin gerçek olup olmadığını görmek için p-değerinin 0.05 altında olup olmadığını kontrol edin.",
+    quickGuideText: "Önce 10 yıllık değişime bakın, ardından değişimin istatistiksel olarak anlamlı olup olmadığını görmek için p-değerinin 0.05 altında olup olmadığını kontrol edin.",
     m1Label: "1. On yıllık eğilim",
     m2Label: "2. On yıllık %95 aralık",
-    m3Label: "3. Düzeltilmiş p-değeri",
+    m3Label: "3. p-değeri (otokorelasyon düzeltmeli)",
+    m3LabelFdr: "3. p-değeri (panodaki testlerle birlikte FDR düzeltmeli)",
     m4Label: "4. Veri süresi",
-    m5Label: "5. Doğrulama için gereken süre",
+    m5Label: "5. Tahmini gerekli kayıt süresi",
     naiveTitle: "Basit regresyon ve düzeltilmiş testler",
     naiveRow1: "Ham veri üzerinde basit regresyon (naif)",
     naiveRow2: "Mevsimsel Mann-Kendall",
-    naiveRow3: "Otokorelasyon düzeltmeli Mann-Kendall (Hamed-Rao)",
+    naiveRow3: "Otokorelasyon düzeltmeli Mann-Kendall",
     naiveRow4: "Anomaliler üzerinde t-testi (otokorelasyon düzeltmeli)",
+    naiveRow5: "Anomaliler üzerinde t-testi (mevsim çıkarılmış, otokorelasyon düzeltmesiz)",
     downloadCsv: "Aylık Veri Serisini İndir (CSV)",
     footerText: "Sayılar deterministik Python koduyla hesaplanır; açıklamalar şablon tabanlıdır. Veriler: NASA GPM, GLDAS, MERRA-2, MODIS, OMI, AIRS, POWER.",
     chartAnomaly: "Aylık anomali (mevsimsellik çıkarılmış)",
@@ -340,7 +344,7 @@ function trendApp() {
     busy: false,
     error: "",
     sheet: null,
-    cmp: { var: "precip", a: "rize", b: "santiago", results: [] },
+    cmp: { var: "t2m", a: "rize", b: "konya", results: [] },
     ex: { topic: "water", place: "sapanca", type: "lake_basin", lat: 40.69, lon: 30.27 },
 
     t(key) {
@@ -743,6 +747,12 @@ function trendApp() {
     },
 
     fmtP: p => (p === null || p === undefined ? "-" : p < 0.001 ? "< 0.001" : p.toFixed(3)),
+    pText: p => (p === null || p === undefined ? "p = -" : p < 0.001 ? "p < 0.001" : `p = ${p.toFixed(3)}`),
+    pLabel(r) { return this.t(r.p_kind === "fdr_bh" ? "m3LabelFdr" : "m3Label"); },
+    methodName(r) {
+      const m = (r.stats && r.stats.acp_method) || r.p_method || "hamed_rao";
+      return { hamed_rao: "Hamed-Rao", yue_wang: "Yue-Wang", pre_whitening: "pre-whitening" }[m] || m;
+    },
     pClass: p => (p !== null && p < 0.05 ? "sig" : "unc"),
 
     metricHelp(r, key) {
@@ -759,8 +769,8 @@ function trendApp() {
         const sameSign = (lo > 0 && hi > 0) || (lo < 0 && hi < 0);
         if (sameSign) {
           return tr
-            ? "Gerçek 10 yıllık değişim bu aralıktadır (yön tutarlı)."
-            : "Real 10-year change sits in this range (consistent direction).";
+            ? "10 yıllık değişim %95 güvenle bu aralıkta; aralık sıfırı içermiyor (yön tutarlı)."
+            : "The 10-year change lies in this range with 95% confidence; the range excludes zero (consistent direction).";
         }
         return tr
           ? "Sıfırı kesiyor — hala hafifçe yukarı veya aşağı olabilir."
@@ -769,11 +779,11 @@ function trendApp() {
       if (key === "pvalue") {
         return r.p_final < 0.05
           ? tr
-            ? "0.05 altında — tesadüf değil, gerçek uzun vadeli değişim."
-            : "Below 0.05 — real long-term shift, not random luck."
+            ? "0.05 altında — istatistiksel olarak anlamlı; trend yokken böyle bir sonuç beklenmez."
+            : "Below 0.05 — statistically significant; a result like this is unlikely if there were no trend."
           : tr
-            ? "0.05 veya üzeri — emin olmak için normal hava dalgalanmalarına çok yakın."
-            : "0.05 or higher — too close to normal weather swings to be sure.";
+            ? "0.05 veya üzeri — anlamlı değil; değişim henüz doğal dalgalanmadan ayırt edilemiyor."
+            : "0.05 or higher — not significant; the change cannot yet be told apart from natural variability.";
       }
       if (key === "years") {
         return tr
@@ -783,13 +793,13 @@ function trendApp() {
       if (key === "detect") {
         if (r.significant) {
           return tr
-            ? "Doğrulandı — mevcut uydu kaydı yeterince uzun."
-            : "Confirmed — current satellite record is long enough.";
+            ? "Mevcut kayıtla zaten istatistiksel olarak anlamlı."
+            : "Already statistically significant with the current record.";
         }
         if (r.stats.years_to_detect) {
           return tr
-            ? "Emin olmak için gereken toplam yıl. Henüz kanıtlanmamış olması sıfır risk demek değildir."
-            : "Total years needed to be sure. Not proven yet ≠ zero risk.";
+            ? "Bu eğilimi tespit etmek için gereken toplam kayıt süresinin kaba tahmini (hız ve gürültü aynı kalırsa). Anlamlı olmaması değişim olmadığı anlamına gelmez."
+            : "Rough estimate of the total record length needed to detect this trend, if its rate and noise stay the same. Not significant does not mean no change.";
         }
         return tr
           ? "Değişim sıfıra çok yakın — gürültüden ayırt etmek on yıllar alır."
@@ -810,14 +820,14 @@ function trendApp() {
         if (tr) {
           const dirWord = s >= 0 ? "artış" : "düşüş";
           return {
-            badge: s >= 0 ? "Doğrulanmış Yükseliş Eğilimi" : "Doğrulanmış Düşüş Eğilimi",
-            lead: `Özetle: ${yrs} yıllık NASA verisinde ${vName}, normal mevsimsel dalgalanmaların ötesinde istatistiksel olarak doğrulanmış gerçek bir ${dirWord} (${rateStr}) gösteriyor.`,
+            badge: s >= 0 ? "İstatistiksel Olarak Anlamlı Artış" : "İstatistiksel Olarak Anlamlı Azalış",
+            lead: `Özetle: ${yrs} yıllık NASA verisinde ${vName}, mevsimsel dalgalanmaların ötesinde istatistiksel olarak anlamlı bir ${dirWord} (${rateStr}) gösteriyor.`,
           };
         }
         const dirWord = s >= 0 ? "rise" : "drop";
         return {
-          badge: s >= 0 ? "Confirmed Upward Trend" : "Confirmed Downward Trend",
-          lead: `In short: Across ${yrs} years of NASA data, ${vName} shows a real, statistically confirmed ${dirWord} of ${rateStr} — not just normal seasonal swings.`,
+          badge: s >= 0 ? "Statistically Significant Increase" : "Statistically Significant Decrease",
+          lead: `In short: Across ${yrs} years of NASA data, ${vName} shows a statistically significant ${dirWord} of ${rateStr}, beyond normal seasonal swings.`,
         };
       }
       if (need) {
@@ -825,24 +835,24 @@ function trendApp() {
           const hint = s >= 0 ? "artış" : "düşüş";
           return {
             badge: "Daha Uzun Kayıt Gerekli",
-            lead: `Özetle: ${yrs} yıllık veride hafif bir ${hint} işareti görülüyor ancak normal hava gürültüsü hala yüksek (p ≥ 0.05). Emin olmak için toplam ~${Math.round(need)} yıl veri gerekiyor — henüz kanıtlanmamış olması sıfır risk demek değildir.`,
+            lead: `Özetle: ${yrs} yıllık veride hafif bir ${hint} işareti görülüyor ancak normal hava gürültüsü hala yüksek (p ≥ 0.05). Kaba bir tahminle toplam ~${Math.round(need)} yıllık kayıt gerekir — anlamlı olmaması değişim olmadığı anlamına gelmez.`,
           };
         }
         const hint = s >= 0 ? "rising" : "falling";
         return {
           badge: "Needs Longer Record",
-          lead: `In short: We see a ${hint} hint over ${yrs} years, but normal weather noise is still too high (p ≥ 0.05). About ${Math.round(need)} total years are needed to be sure — not proven yet does not mean zero risk.`,
+          lead: `In short: We see a ${hint} hint over ${yrs} years, but normal weather noise is still too high (p ≥ 0.05). As a rough estimate, about ${Math.round(need)} years of record in total would be needed to detect it — not significant does not mean no change.`,
         };
       }
       if (tr) {
         return {
-          badge: "Belirgin Değişim Tespit Edilmedi",
-          lead: `Özetle: ${yrs} yıllık NASA kayıtları boyunca ${vName} güvenilir bir yukarı veya aşağı eğilim göstermeden yatay seyrediyor.`,
+          badge: "Anlamlı Eğilim Tespit Edilmedi",
+          lead: `Özetle: ${yrs} yıllık NASA kayıtlarında ${vName} için istatistiksel olarak anlamlı bir artış ya da azalış tespit edilmedi.`,
         };
       }
       return {
-        badge: "No Clear Shift Detected",
-        lead: `In short: Over ${yrs} years of NASA records, ${vName} stays essentially flat with no reliable upward or downward trend.`,
+        badge: "No Significant Trend Detected",
+        lead: `In short: Over ${yrs} years of NASA records, no statistically significant increase or decrease was detected for ${vName}.`,
       };
     },
 

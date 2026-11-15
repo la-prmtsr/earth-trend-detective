@@ -61,3 +61,18 @@ def test_missing_months_do_not_create_trend():
     assert r["hamed_rao_p"] > 0.05 and r["seasonal_mk_p"] > 0.05
     lo, hi = r["ci95"]
     assert lo < 0 < hi
+
+
+def test_reports_which_corrected_test_ran():
+    assert analyze(make_series(0.0, seed=3))["acp_method"] == "hamed_rao"
+    # A very strong, smooth trend makes the Hamed-Rao variance correction negative (p = NaN);
+    # the fallback must then be named, not reported as Hamed-Rao.
+    assert analyze(make_series(0.05))["acp_method"] == "yue_wang"
+
+
+def test_seasonal_cycle_hides_trend_from_simple_regression():
+    """Same regression, one step at a time: raw data misses the trend, removing the seasonal cycle finds it."""
+    r = analyze(make_series(0.05, years=25, seed=0))
+    assert r["naive"]["p"] > 0.05
+    assert r["ols_corrected"]["p_uncorrected"] < 0.05
+    assert r["ols_corrected"]["p_uncorrected"] <= r["ols_corrected"]["p"]

@@ -355,7 +355,7 @@
             <p class="m-help" x-text="metricHelp(sheet, 'range')"></p>
           </div>
           <div class="metric">
-            <span class="m-label" x-text="t('m3Label')"></span>
+            <span class="m-label" x-text="pLabel(sheet)"></span>
             <strong class="m-val" x-text="fmtP(sheet.p_final)"></strong>
             <p class="m-help" x-text="metricHelp(sheet, 'pvalue')"></p>
           </div>
@@ -384,19 +384,23 @@
         <div class="tests">
           <div class="test-row">
             <span x-text="t('naiveRow1')"></span>
-            <span class="p" :class="pClass(sheet.stats.naive.p)" x-text="'p = ' + fmtP(sheet.stats.naive.p)"></span>
+            <span class="p" :class="pClass(sheet.stats.naive.p)" x-text="pText(sheet.stats.naive.p)"></span>
           </div>
-          <div class="test-row">
-            <span x-text="t('naiveRow2')"></span>
-            <span class="p" :class="pClass(sheet.stats.seasonal_mk_p)" x-text="'p = ' + fmtP(sheet.stats.seasonal_mk_p)"></span>
-          </div>
-          <div class="test-row">
-            <span x-text="t('naiveRow3')"></span>
-            <span class="p" :class="pClass(sheet.stats.hamed_rao_p)" x-text="'p = ' + fmtP(sheet.stats.hamed_rao_p)"></span>
+          <div class="test-row" x-show="sheet.stats.ols_corrected.p_uncorrected !== undefined">
+            <span x-text="t('naiveRow5')"></span>
+            <span class="p" :class="pClass(sheet.stats.ols_corrected.p_uncorrected)" x-text="pText(sheet.stats.ols_corrected.p_uncorrected)"></span>
           </div>
           <div class="test-row">
             <span x-text="t('naiveRow4')"></span>
-            <span class="p" :class="pClass(sheet.stats.ols_corrected.p)" x-text="'p = ' + fmtP(sheet.stats.ols_corrected.p)"></span>
+            <span class="p" :class="pClass(sheet.stats.ols_corrected.p)" x-text="pText(sheet.stats.ols_corrected.p)"></span>
+          </div>
+          <div class="test-row">
+            <span x-text="t('naiveRow2')"></span>
+            <span class="p" :class="pClass(sheet.stats.seasonal_mk_p)" x-text="pText(sheet.stats.seasonal_mk_p)"></span>
+          </div>
+          <div class="test-row">
+            <span x-text="t('naiveRow3') + ' (' + methodName(sheet) + ')'"></span>
+            <span class="p" :class="pClass(sheet.stats.hamed_rao_p)" x-text="pText(sheet.stats.hamed_rao_p)"></span>
           </div>
         </div>
         <p class="naive-note" x-text="sheet.naive_vs_correct"></p>
