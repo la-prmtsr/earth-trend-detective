@@ -1,6 +1,6 @@
-"""Trend Detective - FastAPI sunucusu (Uye B).
-Calistirma:  uvicorn server:app --reload     ->  tarayicida http://127.0.0.1:8000
-Tum sayilar core/ icindeki Python kodunda hesaplanir; on yuz (static/) sadece gosterir."""
+"""Trend Detective - FastAPI server.
+Run:  uvicorn server:app --reload     ->  open http://127.0.0.1:8000
+Every number is computed by the Python code in core/; the front end (static/) only displays it."""
 import json
 import math
 import pathlib
@@ -25,7 +25,7 @@ app = FastAPI(title="Trend Detective")
 
 
 def clean(x):
-    """JSON'a uygun hale getir: NaN/sonsuz -> None, numpy sayilari -> float."""
+    """Make a value JSON-safe: NaN/infinity -> None, numpy numbers -> float."""
     if isinstance(x, dict):
         return {k: clean(v) for k, v in x.items()}
     if isinstance(x, (list, tuple)):
@@ -38,7 +38,7 @@ def clean(x):
 
 
 def result_payload(var_id: str, s, p_adj: float | None = None, r: dict | None = None,
-                   unit: str | None = None) -> dict:
+                   unit: str | None = None, events: list | None = None) -> dict:
     v = VARS[var_id]
     unit = unit or v["unit"]
     r = dict(r if r is not None else analyze(s))
@@ -54,6 +54,7 @@ def result_payload(var_id: str, s, p_adj: float | None = None, r: dict | None = 
         "stats": r, "p_final": p, "significant": bool(p < 0.05),
         "explanation": explain(v["name"], unit, r, p_adj),
         "naive_vs_correct": naive_vs_correct(r),
+        "events": [{k: e[k] for k in ("start", "end", "label")} for e in (events or [])],
     })
 
 
@@ -77,8 +78,11 @@ def _case(case_id: str) -> dict:
         return {"id": case_id, "variables": [], "missing": missing}
     results = {k: analyze(s) for k, s in series.items()}
     p_adj = fdr_adjust({k: r["hamed_rao_p"] for k, r in results.items()})
+    events = c.get("events", [])
     return {"id": case_id, "missing": missing,
-            "variables": [result_payload(k, s, p_adj[k], results[k]) for k, s in series.items()]}
+            "variables": [result_payload(k, s, p_adj[k], results[k],
+                                         events=[e for e in events if k in e["vars"]])
+                          for k, s in series.items()]}
 
 
 @app.get("/api/case/{case_id}")
@@ -100,7 +104,7 @@ def power(var_id: str, lat: float, lon: float):
         raise HTTPException(400, "This variable is not available live")
     try:
         s = _power(round(lat, 2), round(lon, 2), v["power_param"])
-    except Exception as e:  # ag hatasi vb.
+    except Exception as e:  # network error etc.
         raise HTTPException(502, f"NASA POWER request failed: {e}")
     return result_payload(var_id, s, unit=v.get("power_unit", v["unit"]))
 

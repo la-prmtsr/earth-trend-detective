@@ -1,4 +1,4 @@
-"""API testleri: sahte CSV ve sahte POWER verisiyle sunucunun dogru JSON dondugunu kontrol eder."""
+"""API tests: check that the server returns correct JSON, using synthetic CSV and synthetic POWER data."""
 import numpy as np
 import pandas as pd
 from fastapi.testclient import TestClient
@@ -41,7 +41,7 @@ def test_index_served():
 
 
 def test_case_applies_unit_conversion(monkeypatch, tmp_path):
-    s = fake_series() + 280  # Kelvin gibi
+    s = fake_series() + 280  # looks like Kelvin
     (tmp_path / "t2m.csv").write_text("Title: t\n\ntime,mean\n" + "\n".join(
         f"{d:%Y-%m-%d},{x:.3f}" for d, x in s.items()))
     monkeypatch.setitem(server.CASES["case2"], "folder", str(tmp_path))
@@ -49,4 +49,19 @@ def test_case_applies_unit_conversion(monkeypatch, tmp_path):
     body = TestClient(server.app).get("/api/case/case2").json()
     t2m = next(v for v in body["variables"] if v["id"] == "t2m")
     assert abs(t2m["values"][0] - (s.iloc[0] - 273.15)) < 0.01 and t2m["unit"] == "°C"
+    server._case.cache_clear()
+
+
+def test_case_marks_events_and_survives_missing_months(monkeypatch, tmp_path):
+    s = fake_series()
+    s = s[~s.index.month.isin([12, 1])]  # like satellite data: some months absent
+    (tmp_path / "no2.csv").write_text("Title: t\n\ntime,mean\n" + "\n".join(
+        f"{d:%Y-%m-%d},{x * 1e15:.6e}" for d, x in s.items()))
+    monkeypatch.setitem(server.CASES["case2"], "folder", str(tmp_path))
+    server._case.cache_clear()
+    body = TestClient(server.app).get("/api/case/case2").json()
+    no2 = next(v for v in body["variables"] if v["id"] == "no2")
+    assert no2["events"] and no2["events"][0]["label"] == "2020 lockdown"
+    assert no2["stats"]["n_missing"] > 0 and no2["significant"] is True
+    assert len(no2["dates"]) == len(no2["anomaly"]) == len(no2["trend"]) == len(s)
     server._case.cache_clear()
