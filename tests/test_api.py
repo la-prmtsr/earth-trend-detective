@@ -84,3 +84,22 @@ def test_power_uses_saved_cache_without_network(monkeypatch, tmp_path):
     r = TestClient(server.app).get("/api/power", params={"var_id": "t2m", "lat": 40.69, "lon": 30.27})
     assert r.status_code == 200 and len(r.json()["dates"]) == 300
     server._power.cache_clear(); server._power_payload.cache_clear()
+
+
+def test_payload_says_which_p_value_it_shows(monkeypatch, tmp_path):
+    monkeypatch.setattr(server, "fetch_power",
+                        lambda lat, lon, params: pd.DataFrame({params[0]: fake_series()}))
+    server._power.cache_clear(); server._power_payload.cache_clear()
+    live = TestClient(server.app).get("/api/power", params={"var_id": "t2m", "lat": 1.23, "lon": 4.56}).json()
+    assert live["p_kind"] == "raw" and live["p_final"] == live["p_raw"] and live["p_method"]
+
+    for name, seed in (("t2m.csv", 0), ("no2.csv", 5)):
+        s = fake_series(seed=seed)
+        (tmp_path / name).write_text("Title: t\n\ntime,mean\n" + "\n".join(
+            f"{d:%Y-%m-%d},{x:.3f}" for d, x in s.items()))
+    monkeypatch.setitem(server.CASES["case2"], "folder", str(tmp_path))
+    server._case.cache_clear()
+    for v in TestClient(server.app).get("/api/case/case2").json()["variables"]:
+        assert v["p_kind"] == "fdr_bh" and v["p_final"] >= v["p_raw"]
+        assert "FDR-adjusted" in v["explanation"]
+    server._case.cache_clear()
