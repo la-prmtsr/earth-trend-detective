@@ -211,6 +211,39 @@ const KIND_LABEL = {
         peak: "zirve", mountain: "dağ", island: "ada", forest: "orman" },
 };
 
+// Place search: ask our server first; if OpenStreetMap refuses the server (shared cloud IP),
+// the browser asks OpenStreetMap directly and applies the same size rules as core/data_sources.py.
+const NATURAL = ["natural", "water", "waterway", "landuse", "leisure"];
+async function findPlaces(q, lang) {
+  try {
+    const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}&lang=${lang}`).then(x => x.json());
+    if (!r.error) return { results: r.results || [] };
+  } catch (e) { /* fall through to the browser request */ }
+  try {
+    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=15"
+      + `&accept-language=${lang}&q=${encodeURIComponent(q)}`;
+    const raw = await fetch(url).then(x => { if (!x.ok) throw new Error(x.status); return x.json(); });
+    const out = [], seen = new Set();
+    for (const x of raw) {
+      const rank = Number(x.place_rank || 30), natural = NATURAL.includes(x.category);
+      if (rank >= 21 && !natural) continue;
+      const a = x.address || {};
+      const name = x.name || (x.display_name || "").split(",")[0];
+      const region = [...new Set([a.province || a.state, a.country].filter(Boolean))].join(", ");
+      const kind = x.addresstype || x.type || "";
+      const key = `${name}|${region}|${kind}`;
+      if (!name || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ name, region, kind, lat: Math.round(x.lat * 100) / 100, lon: Math.round(x.lon * 100) / 100,
+                 scale: rank <= 10 && !natural ? "large" : "ok" });
+      if (out.length >= 5) break;
+    }
+    return { results: out };
+  } catch (e) {
+    return { results: [], error: true };
+  }
+}
+
 const VAR_TR = {
   precip: "Yağış miktarı",
   evap: "Evapotranspirasyon",
@@ -698,13 +731,9 @@ function trendApp() {
       if (q.length < 2) return;
       this.searchState = "searching";
       this.results = [];
-      try {
-        const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}&lang=${this.lang}`).then(x => x.json());
-        this.results = r.results || [];
-        this.searchState = r.error ? "error" : (this.results.length ? "" : "none");
-      } catch (e) {
-        this.searchState = "error";
-      }
+      const r = await findPlaces(q, this.lang);
+      this.results = r.results;
+      this.searchState = r.error ? "error" : (this.results.length ? "" : "none");
     },
 
     kindName(k) {
@@ -768,13 +797,9 @@ function trendApp() {
       if (q.length < 2) return;
       st.state = "searching";
       st.results = [];
-      try {
-        const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}&lang=${this.lang}`).then(x => x.json());
-        st.results = r.results || [];
-        st.state = r.error ? "error" : (st.results.length ? "" : "none");
-      } catch (e) {
-        st.state = "error";
-      }
+      const r = await findPlaces(q, this.lang);
+      st.results = r.results;
+      st.state = r.error ? "error" : (st.results.length ? "" : "none");
     },
 
     cmpChoose(slot, r) {
