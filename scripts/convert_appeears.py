@@ -1,7 +1,7 @@
-"""AppEEARS 'Point Sample' CSV'sini (MODIS LST) uygulamanin okudugu aylik CSV'ye cevirir.
-Kullanim:  python scripts/convert_appeears.py indirilen.csv data/case1_sapanca/lake_lst.csv
-- Birden fazla gol noktasi varsa her tarih icin ortalama alinir.
-- Deger 1000'den buyukse once 0.02 ile carpilir (olcek faktoru); sonra Kelvin -> Celsius."""
+"""Convert an AppEEARS 'Point Sample' CSV (MODIS LST) into the monthly CSV the app reads.
+Usage:  python scripts/convert_appeears.py download.csv data/case1_sapanca/lake_lst.csv
+- With several lake points, values are averaged per date.
+- Values above 1000 are first multiplied by 0.02 (scale factor); then Kelvin -> Celsius."""
 import sys
 
 import pandas as pd

@@ -1,4 +1,4 @@
-"""Veri okuma: Giovanni CSV dosyalari ve canli NASA POWER API."""
+"""Data access: Giovanni CSV files and the live NASA POWER API."""
 import io
 import numpy as np
 import pandas as pd
@@ -8,9 +8,9 @@ POWER_URL = "https://power.larc.nasa.gov/api/temporal/monthly/point"
 
 
 def load_giovanni_csv(path_or_text: str, value_col: int = 1) -> pd.Series:
-    """Giovanni 'Time Series, Area-Averaged' CSV'sini okur.
-    Dosyanin basinda aciklama satirlari olur; 'time' ile baslayan satiri bulup oradan okuruz.
-    Bos/eksik degerler (ornegin -9999) NaN yapilir. Sonuc: aylik Series (index = ayin ilk gunu)."""
+    """Read a Giovanni 'Time Series, Area-Averaged' CSV.
+    The file starts with metadata lines; reading begins at the line that starts with 'time'.
+    Fill values (for example -9999) become NaN. Returns a monthly Series (index = first day of month)."""
     try:
         text = open(path_or_text, encoding="utf-8").read()
     except (FileNotFoundError, OSError):
@@ -22,15 +22,15 @@ def load_giovanni_csv(path_or_text: str, value_col: int = 1) -> pd.Series:
     s = pd.to_numeric(df.iloc[:, value_col], errors="coerce")
     s[s < -9000] = np.nan
     s.index = df["time"]
-    s = s.resample("MS").mean()  # gunluk veri gelirse (ornegin OMI NO2) aylik ortalamaya cevirir
+    s = s.resample("MS").mean()  # daily input (for example OMI NO2) becomes a monthly mean
     return s.dropna()
 
 
 def fetch_power(lat: float, lon: float, params=("T2M", "PRECTOTCORR"),
                 start: int = 1981, end: int = 2025) -> pd.DataFrame:
-    """NASA POWER aylik nokta verisi (API anahtari gerekmez).
-    Dikkat: yanit her yil icin '13' numarali ay (yillik ortalama) icerir; onu atiyoruz.
-    -999 = eksik veri."""
+    """NASA POWER monthly point data (no API key needed).
+    Note: the response includes a month '13' for every year (the annual mean); it is dropped.
+    -999 = missing value."""
     q = {
         "parameters": ",".join(params), "community": "AG",
         "latitude": lat, "longitude": lon,
