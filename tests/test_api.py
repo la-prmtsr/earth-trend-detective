@@ -1,4 +1,6 @@
 """API tests: check that the server returns correct JSON, using synthetic CSV and synthetic POWER data."""
+import json
+
 import numpy as np
 import pandas as pd
 from fastapi.testclient import TestClient
@@ -21,7 +23,7 @@ def test_catalog():
 def test_power_endpoint(monkeypatch):
     monkeypatch.setattr(server, "fetch_power",
                         lambda lat, lon, params: pd.DataFrame({params[0]: fake_series()}))
-    server._power.cache_clear()
+    server._power.cache_clear(); server._power_payload.cache_clear()
     r = TestClient(server.app).get("/api/power", params={"var_id": "t2m", "lat": 40.7, "lon": 30.3})
     assert r.status_code == 200
     body = r.json()
@@ -65,3 +67,20 @@ def test_case_marks_events_and_survives_missing_months(monkeypatch, tmp_path):
     assert no2["stats"]["n_missing"] > 0 and no2["significant"] is True
     assert len(no2["dates"]) == len(no2["anomaly"]) == len(no2["trend"]) == len(s)
     server._case.cache_clear()
+
+
+def test_power_uses_saved_cache_without_network(monkeypatch, tmp_path):
+    from core.data_sources import power_cache_path
+    s = fake_series()
+    data = {"T2M": {f"{d:%Y%m}": float(x) for d, x in s.items()}}
+    data["T2M"].update({f"{y}13": 0.0 for y in range(2000, 2025)})  # POWER's annual-mean month
+    power_cache_path(tmp_path, 40.69, 30.27).write_text(json.dumps({"parameter": data}))
+
+    def no_network(*a, **k):
+        raise AssertionError("network should not be used for a cached place")
+    monkeypatch.setattr(server, "POWER_CACHE", tmp_path)
+    monkeypatch.setattr(server, "fetch_power", no_network)
+    server._power.cache_clear(); server._power_payload.cache_clear()
+    r = TestClient(server.app).get("/api/power", params={"var_id": "t2m", "lat": 40.69, "lon": 30.27})
+    assert r.status_code == 200 and len(r.json()["dates"]) == 300
+    server._power.cache_clear(); server._power_payload.cache_clear()

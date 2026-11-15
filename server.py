@@ -13,20 +13,35 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from core.config import CASES, CONVERT, PLACES
-from core.data_sources import fetch_power, load_giovanni_csv
+from core.data_sources import fetch_power, load_giovanni_csv, load_power_cache
 from core.explain import explain, naive_vs_correct
 from core.stats_engine import analyze, fdr_adjust
 
 ROOT = pathlib.Path(__file__).resolve().parent
 CAT = json.loads((ROOT / "core" / "catalog.json").read_text(encoding="utf-8"))
 VARS = {v["id"]: v for v in CAT["variables"]}
+POWER_CACHE = ROOT / "data" / "power_cache"  # saved POWER responses for the preset places (scripts/cache_power.py)
 
 app = FastAPI(title="Trend Detective")
 import threading
 
+def _warm_all():
+    """Compute the case files and every cached preset place in the background,
+    so the first click in the app is instant."""
+    for c in CASES:
+        _case(c)
+    for p in PLACES.values():
+        for var_id, v in VARS.items():
+            if v.get("power_param") and load_power_cache(POWER_CACHE, p["lat"], p["lon"], v["power_param"]) is not None:
+                try:
+                    _power_payload(var_id, round(p["lat"], 2), round(p["lon"], 2))
+                except Exception:
+                    pass
+
+
 @app.on_event("startup")
 def warm_up():
-    threading.Thread(target=lambda: [_case(c) for c in CASES], daemon=True).start()
+    threading.Thread(target=_warm_all, daemon=True).start()
 
 def clean(x):
     """Make a value JSON-safe: NaN/infinity -> None, numpy numbers -> float."""
@@ -98,7 +113,17 @@ def case(case_id: str):
 
 @lru_cache(maxsize=64)
 def _power(lat: float, lon: float, param: str):
-    return fetch_power(lat, lon, params=(param,))[param].dropna()
+    """Saved cache first (instant, works offline); live NASA POWER request otherwise."""
+    s = load_power_cache(POWER_CACHE, lat, lon, param)
+    if s is None:
+        s = fetch_power(lat, lon, params=(param,))[param]
+    return s.dropna()
+
+
+@lru_cache(maxsize=128)
+def _power_payload(var_id: str, lat: float, lon: float) -> dict:
+    v = VARS[var_id]
+    return result_payload(var_id, _power(lat, lon, v["power_param"]), unit=v.get("power_unit", v["unit"]))
 
 
 @app.get("/api/power")
@@ -107,10 +132,9 @@ def power(var_id: str, lat: float, lon: float):
     if not v or not v["power_param"]:
         raise HTTPException(400, "This variable is not available live")
     try:
-        s = _power(round(lat, 2), round(lon, 2), v["power_param"])
+        return _power_payload(var_id, round(lat, 2), round(lon, 2))
     except Exception as e:  # network error etc.
         raise HTTPException(502, f"NASA POWER request failed: {e}")
-    return result_payload(var_id, s, unit=v.get("power_unit", v["unit"]))
 
 
 @app.get("/")
