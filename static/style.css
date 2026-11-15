@@ -1,0 +1,117 @@
+/* Trend Detective - iOS tarzi tasarim (Uye C). Renkler Apple'in sistem renklerine yakin. */
+:root {
+  --bg: #F2F2F7; --card: #FFFFFF; --text: #1C1C1E; --muted: #6C6C70; --line: #E5E5EA;
+  --blue: #007AFF; --green: #34C759; --orange: #FF9500; --gray: #8E8E93; --red: #FF3B30;
+  --radius: 20px; --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.06);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", Roboto, sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; }
+[x-cloak] { display: none !important; }
+
+/* Ust bar: buzlu cam */
+.topbar {
+  position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 14px;
+  align-items: center; justify-content: space-between; padding: 14px 24px;
+  background: rgba(242,242,247,.75); backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px); border-bottom: 1px solid rgba(0,0,0,.06);
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand h1 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
+.brand p { margin: 0; color: var(--muted); font-size: 13px; }
+.brand-icon { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px;
+  background: linear-gradient(135deg, #0A84FF, #5E5CE6); color: #fff; }
+
+/* iOS segmented control */
+.segmented { display: flex; background: #E3E3E8; padding: 3px; border-radius: 12px; gap: 2px; }
+.segmented button { display: flex; align-items: center; gap: 6px; border: 0; background: transparent;
+  padding: 8px 14px; border-radius: 9px; font: inherit; font-size: 14px; color: var(--text); cursor: pointer; }
+.segmented button.active { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.12); font-weight: 600; }
+
+main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+.card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; }
+.hero h2 { margin: 4px 0 2px; font-size: 30px; letter-spacing: -.02em; }
+.hero p { margin: 6px 0 0; line-height: 1.5; }
+.eyebrow { color: var(--blue); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+.muted { color: var(--muted); }
+.center { text-align: center; margin-top: 16px; }
+.section-title { margin: 28px 4px 12px; font-size: 20px; letter-spacing: -.01em; }
+.section-title small { color: var(--muted); font-weight: 400; font-size: 14px; margin-left: 6px; }
+.footnote { color: var(--muted); font-size: 13px; margin: 12px 4px; }
+
+/* Supheli panosu */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.tile { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  border: 0; text-align: left; font: inherit; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease; }
+.tile:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(0,0,0,.10); }
+.tile:active { transform: scale(.98); }
+.tile-name { font-weight: 600; font-size: 16px; }
+.tile-value { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.chev { position: absolute; right: 16px; top: 20px; color: #C7C7CC; }
+
+.bubble { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; color: #fff; flex: none; }
+.bubble.small { width: 32px; height: 32px; border-radius: 10px; }
+.bubble.green { background: var(--green); } .bubble.gray { background: var(--gray); } .bubble.blue { background: var(--blue); }
+.pill { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pill.green { background: rgba(52,199,89,.15); color: #248A3D; }
+.pill.gray { background: rgba(142,142,147,.16); color: #636366; }
+
+.banner { display: flex; align-items: center; gap: 10px; margin-top: 16px; padding: 12px 16px; border-radius: 14px; font-size: 14px; }
+.banner.warn { background: rgba(255,149,0,.12); color: #A05A00; }
+
+/* Formlar ve chip'ler */
+.form { margin-top: 16px; display: flex; flex-direction: column; gap: 10px; }
+.form label { font-weight: 600; font-size: 15px; margin-top: 6px; display: flex; align-items: center; gap: 8px; }
+.step { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--blue); color: #fff; font-size: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: #fff; padding: 8px 14px;
+  border-radius: 999px; font: inherit; font-size: 14px; cursor: pointer; transition: all .15s ease; }
+.chip.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+input, select { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; font: inherit; background: #fff; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+@media (max-width: 720px) { .two { grid-template-columns: 1fr; } .segmented span:last-child { display: none; } }
+
+button.primary, button.secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border: 0; border-radius: 14px; padding: 12px 18px; font: inherit; font-weight: 600; cursor: pointer; }
+button.primary { background: var(--blue); color: #fff; }
+button.primary:disabled { opacity: .5; }
+button.primary.small { padding: 7px 14px; border-radius: 10px; font-size: 14px; }
+button.secondary { background: rgba(0,122,255,.1); color: var(--blue); margin-top: 8px; }
+button.link { border: 0; background: none; color: var(--blue); font: inherit; display: inline-flex; align-items: center; cursor: pointer; padding: 0; }
+.error { color: var(--red); }
+
+/* Listeler (iOS "grouped list") */
+.list { padding: 0; overflow: hidden; }
+.row { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.row-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.row-text small { color: var(--muted); }
+
+.result-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.result-head .pill { margin-left: auto; }
+.chart { width: 100%; min-height: 220px; }
+
+/* Alttan acilan detay sayfasi */
+.backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.3); z-index: 20; }
+.sheet { position: fixed; z-index: 30; left: 50%; bottom: 0; transform: translateX(-50%); width: min(820px, 100%);
+  max-height: 92vh; overflow-y: auto; background: var(--bg); border-radius: 24px 24px 0 0; padding: 8px 22px 28px;
+  box-shadow: 0 -10px 40px rgba(0,0,0,.18); }
+.slide-in { animation: up .28s cubic-bezier(.2,.8,.2,1); }
+.slide-out { animation: up .2s reverse ease-in; }
+@keyframes up { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
+.grabber { width: 40px; height: 5px; border-radius: 3px; background: #C7C7CC; margin: 6px auto 14px; }
+.sheet-head { display: flex; align-items: center; gap: 12px; }
+.sheet-head h2 { margin: 0; font-size: 24px; }
+.close { margin-left: auto; border: 0; background: #E3E3E8; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; }
+.definition { display: flex; gap: 8px; color: var(--muted); align-items: flex-start; }
+.chart.big { background: #fff; border-radius: 16px; padding: 8px; min-height: 316px; margin-top: 12px; }
+.verdict { display: flex; gap: 10px; align-items: flex-start; padding: 14px 16px; border-radius: 16px; margin: 14px 0; }
+.verdict p { margin: 0; line-height: 1.5; }
+.verdict.green { background: rgba(52,199,89,.12); color: #1D6F33; }
+.verdict.gray { background: rgba(142,142,147,.14); color: #3A3A3C; }
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.stats div { background: #fff; border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.stats small { color: var(--muted); font-size: 12px; }
+.stats b { font-size: 18px; }
+
+footer { display: flex; align-items: center; gap: 6px; justify-content: center; color: var(--muted); font-size: 12px; padding: 24px; }

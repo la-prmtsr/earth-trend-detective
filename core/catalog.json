@@ -1,0 +1,138 @@
+{
+  "place_types": {
+    "lake_basin": "Lake basin",
+    "big_city": "Large city",
+    "dry_inland": "Dry inland region",
+    "coast_forest": "Coast / forest"
+  },
+  "topics": {
+    "water": "Water cycle",
+    "temperature": "Temperature",
+    "air": "Air quality",
+    "vegetation": "Vegetation"
+  },
+  "variables": [
+    {
+      "id": "precip",
+      "name": "Precipitation",
+      "topic": "water",
+      "unit": "mm/day",
+      "definition": "Rain and snow that falls from the sky, averaged per day.",
+      "source": "GPM IMERG (Giovanni) / NASA POWER PRECTOTCORR",
+      "power_param": "PRECTOTCORR",
+      "place_types": [
+        "lake_basin",
+        "big_city",
+        "dry_inland",
+        "coast_forest"
+      ],
+      "power_unit": "mm/day"
+    },
+    {
+      "id": "evap",
+      "name": "Evapotranspiration",
+      "topic": "water",
+      "unit": "mm/day",
+      "definition": "Water that moves from soil, water surfaces and plants into the air.",
+      "source": "GLDAS Noah (Giovanni)",
+      "power_param": null,
+      "place_types": [
+        "lake_basin",
+        "dry_inland",
+        "coast_forest"
+      ]
+    },
+    {
+      "id": "runoff",
+      "name": "Surface runoff",
+      "topic": "water",
+      "unit": "mm/day",
+      "definition": "Rain water that flows over the ground toward streams and lakes instead of soaking in.",
+      "source": "GLDAS Noah (Giovanni)",
+      "power_param": null,
+      "place_types": [
+        "lake_basin",
+        "coast_forest"
+      ]
+    },
+    {
+      "id": "soil",
+      "name": "Soil moisture",
+      "topic": "water",
+      "unit": "kg/m²",
+      "definition": "How wet or dry the top layer of the ground is.",
+      "source": "GLDAS Noah (Giovanni) / NASA POWER GWETROOT",
+      "power_param": "GWETROOT",
+      "place_types": [
+        "lake_basin",
+        "dry_inland"
+      ],
+      "power_unit": "0–1 (wetness)"
+    },
+    {
+      "id": "t2m",
+      "name": "Air temperature (2 m)",
+      "topic": "temperature",
+      "unit": "°C",
+      "definition": "The air temperature 2 meters above the ground: the temperature we feel.",
+      "source": "MERRA-2 (Giovanni) / NASA POWER T2M",
+      "power_param": "T2M",
+      "place_types": [
+        "lake_basin",
+        "big_city",
+        "dry_inland",
+        "coast_forest"
+      ],
+      "power_unit": "°C"
+    },
+    {
+      "id": "lake_lst",
+      "name": "Lake surface temperature",
+      "topic": "temperature",
+      "unit": "°C",
+      "definition": "The temperature of the lake's surface, measured by the satellite in infrared.",
+      "source": "MODIS (AppEEARS)",
+      "power_param": null,
+      "place_types": [
+        "lake_basin"
+      ]
+    },
+    {
+      "id": "no2",
+      "name": "Tropospheric NO2",
+      "topic": "air",
+      "unit": "10¹⁵ molecules/cm²",
+      "definition": "Nitrogen dioxide in the lower atmosphere, mostly from traffic and industry; a sign of air pollution.",
+      "source": "OMI (Giovanni)",
+      "power_param": null,
+      "place_types": [
+        "big_city"
+      ]
+    },
+    {
+      "id": "airs_t",
+      "name": "Air temperature aloft",
+      "topic": "temperature",
+      "unit": "°C",
+      "definition": "Air temperature at a chosen height in the atmosphere (pressure level), measured by AIRS.",
+      "source": "AIRS (Giovanni)",
+      "power_param": null,
+      "place_types": [
+        "big_city"
+      ]
+    },
+    {
+      "id": "ndvi",
+      "name": "Vegetation greenness (NDVI)",
+      "topic": "vegetation",
+      "unit": "0–1",
+      "definition": "A number from 0 to 1 that shows how green and alive the plants are.",
+      "source": "MODIS (AppEEARS)",
+      "power_param": null,
+      "place_types": [
+        "coast_forest",
+        "dry_inland"
+      ]
+    }
+  ]
+}

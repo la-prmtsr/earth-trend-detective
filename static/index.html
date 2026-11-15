@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Trend Detective · Earth System Case Files</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%F0%9F%94%AD%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/vendor/plotly-basic.min.js"></script>
+  <script src="/static/vendor/lucide.min.js"></script>
+  <script src="/static/app.js"></script>
+  <script defer src="/static/vendor/alpine.min.js"></script>
+</head>
+<body x-data="trendApp()" x-init="init()">
+
+  <!-- Ust bar -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-icon" x-html="icon('telescope', 22)"></span>
+      <div>
+        <h1>Trend Detective</h1>
+        <p>Earth system case files with NASA data</p>
+      </div>
+    </div>
+    <nav class="segmented" role="tablist">
+      <template x-for="t in tabs" :key="t.id">
+        <button role="tab" :class="{ active: tab === t.id }" @click="go(t.id)">
+          <span x-html="icon(t.icon, 16)"></span><span x-text="t.label"></span>
+        </button>
+      </template>
+    </nav>
+  </header>
+
+  <main>
+    <!-- VAKA 1 ve VAKA 2 -->
+    <template x-if="tab === 'case1' || tab === 'case2'">
+      <section>
+        <div class="hero card">
+          <span class="eyebrow" x-text="tab === 'case1' ? 'Case 1' : 'Case 2'"></span>
+          <h2 x-text="cases[tab]?.title"></h2>
+          <p class="muted" x-text="cases[tab]?.subtitle"></p>
+          <p x-text="cases[tab]?.intro"></p>
+        </div>
+
+        <template x-if="loading"><div class="card center muted">Loading NASA data…</div></template>
+
+        <template x-if="caseData[tab]?.missing?.length">
+          <div class="banner warn">
+            <span x-html="icon('triangle-alert', 18)"></span>
+            <span>Data not added yet: <b x-text="caseData[tab].missing.join(', ')"></b></span>
+          </div>
+        </template>
+
+        <h3 class="section-title">Suspect board <small>which variables are really changing?</small></h3>
+        <div class="grid">
+          <template x-for="v in (caseData[tab]?.variables || [])" :key="v.id">
+            <button class="tile card" @click="open(v)">
+              <span class="bubble" :class="v.significant ? 'green' : 'gray'" x-html="icon(varIcon(v.id), 22)"></span>
+              <span class="tile-name" x-text="v.name"></span>
+              <span class="tile-value" x-text="perDecade(v)"></span>
+              <span class="pill" :class="v.significant ? 'green' : 'gray'"
+                    x-text="v.significant ? 'Significant change' : 'Not certain yet'"></span>
+              <span class="chev" x-html="icon('chevron-right', 18)"></span>
+            </button>
+          </template>
+        </div>
+        <p class="footnote">All tests on this board are corrected together (Benjamini-Hochberg false discovery rate).</p>
+      </section>
+    </template>
+
+    <!-- VAKA 3: IKI BOLGE -->
+    <template x-if="tab === 'compare'">
+      <section>
+        <div class="hero card">
+          <span class="eyebrow">Case 3</span>
+          <h2>Same variable, two regions</h2>
+          <p>The same process can push a variable up in one region and down in another. Compare two places.</p>
+        </div>
+        <div class="card form">
+          <label>Variable</label>
+          <div class="chips">
+            <template x-for="v in liveVars()" :key="v.id">
+              <button class="chip" :class="{ on: cmp.var === v.id }" @click="cmp.var = v.id">
+                <span x-html="icon(varIcon(v.id), 16)"></span><span x-text="v.name"></span>
+              </button>
+            </template>
+          </div>
+          <div class="two">
+            <div><label>Region A</label>
+              <select x-model="cmp.a"><template x-for="(p, k) in places" :key="k"><option :value="k" x-text="p.name"></option></template></select></div>
+            <div><label>Region B</label>
+              <select x-model="cmp.b"><template x-for="(p, k) in places" :key="k"><option :value="k" x-text="p.name"></option></template></select></div>
+          </div>
+          <button class="primary" @click="compare()" :disabled="busy">
+            <span x-html="icon('arrow-left-right', 18)"></span><span x-text="busy ? 'Loading…' : 'Compare'"></span>
+          </button>
+          <p class="error" x-show="error" x-text="error"></p>
+        </div>
+        <div class="two">
+          <template x-for="(r, i) in cmp.results" :key="i">
+            <div class="card result">
+              <div class="result-head">
+                <span class="bubble small" :class="r.significant ? 'green' : 'gray'" x-html="icon('map-pin', 16)"></span>
+                <b x-text="places[i === 0 ? cmp.a : cmp.b].name"></b>
+                <span class="pill" :class="r.significant ? 'green' : 'gray'" x-text="r.significant ? 'Significant' : 'Not certain yet'"></span>
+              </div>
+              <div class="chart" :id="'cmp-chart-' + i"></div>
+              <p x-text="r.explanation"></p>
+              <button class="link" @click="open(r)">Details <span x-html="icon('chevron-right', 16)"></span></button>
+            </div>
+          </template>
+        </div>
+      </section>
+    </template>
+
+    <!-- SERBEST KESIF -->
+    <template x-if="tab === 'explore'">
+      <section>
+        <div class="hero card">
+          <span class="eyebrow">Explore</span>
+          <h2>Be a data detective anywhere</h2>
+          <p>Answer three short questions. We suggest NASA variables that can show trends for this kind of place.</p>
+        </div>
+        <div class="card form">
+          <label><span class="step">1</span> What do you want to investigate?</label>
+          <div class="chips">
+            <template x-for="(name, k) in catalog.topics" :key="k">
+              <button class="chip" :class="{ on: ex.topic === k }" @click="ex.topic = k">
+                <span x-html="icon(topicIcon(k), 16)"></span><span x-text="name"></span>
+              </button>
+            </template>
+          </div>
+          <label><span class="step">2</span> Where?</label>
+          <div class="chips">
+            <template x-for="(p, k) in places" :key="k">
+              <button class="chip" :class="{ on: ex.place === k }" @click="pickPlace(k)">
+                <span x-html="icon('map-pin', 16)"></span><span x-text="p.name"></span>
+              </button>
+            </template>
+            <button class="chip" :class="{ on: ex.place === 'custom' }" @click="ex.place = 'custom'">
+              <span x-html="icon('compass', 16)"></span><span>Custom</span>
+            </button>
+          </div>
+          <div class="two" x-show="ex.place === 'custom'">
+            <div><label>Latitude</label><input type="number" step="0.01" x-model.number="ex.lat"></div>
+            <div><label>Longitude</label><input type="number" step="0.01" x-model.number="ex.lon"></div>
+          </div>
+          <label><span class="step">3</span> What kind of place is it?</label>
+          <div class="chips">
+            <template x-for="(name, k) in catalog.place_types" :key="k">
+              <button class="chip" :class="{ on: ex.type === k }" @click="ex.type = k">
+                <span x-html="icon(placeIcon(k), 16)"></span><span x-text="name"></span>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <h3 class="section-title">Suggested variables</h3>
+        <div class="list card">
+          <template x-for="v in suggestions()" :key="v.id">
+            <div class="row">
+              <span class="bubble small blue" x-html="icon(varIcon(v.id), 16)"></span>
+              <div class="row-text"><b x-text="v.name"></b><small x-text="v.definition"></small></div>
+              <template x-if="v.power_param">
+                <button class="primary small" @click="analyzeLive(v.id)" :disabled="busy">
+                  <span x-text="busy ? '…' : 'Analyze'"></span>
+                </button>
+              </template>
+              <template x-if="!v.power_param"><span class="pill gray">In case files</span></template>
+            </div>
+          </template>
+          <template x-if="!suggestions().length"><div class="row muted">No variable in the catalog for this combination yet.</div></template>
+        </div>
+        <p class="error" x-show="error" x-text="error"></p>
+      </section>
+    </template>
+  </main>
+
+  <!-- DETAY SAYFASI (iOS tarzi alttan acilan sheet) -->
+  <div class="backdrop" x-show="sheet" x-transition.opacity @click="sheet = null"></div>
+  <div class="sheet" x-show="sheet" x-transition:enter="slide-in" x-transition:leave="slide-out" @keydown.escape.window="sheet = null">
+    <template x-if="sheet">
+      <div>
+        <div class="grabber"></div>
+        <div class="sheet-head">
+          <span class="bubble" :class="sheet.significant ? 'green' : 'gray'" x-html="icon(varIcon(sheet.id), 22)"></span>
+          <div><h2 x-text="sheet.name"></h2><small class="muted" x-text="sheet.source"></small></div>
+          <button class="close" @click="sheet = null" x-html="icon('x', 20)"></button>
+        </div>
+        <p class="definition"><span x-html="icon('info', 16)"></span><span x-text="sheet.definition"></span></p>
+        <div class="chart big" id="sheet-chart"></div>
+        <div class="verdict" :class="sheet.significant ? 'green' : 'gray'">
+          <span x-html="icon(sheet.significant ? 'circle-check' : 'circle-help', 20)"></span>
+          <p x-text="sheet.explanation"></p>
+        </div>
+        <div class="stats">
+          <div><small>Trend per decade</small><b x-text="perDecade(sheet)"></b></div>
+          <div><small>95% range per decade</small><b x-text="range(sheet)"></b></div>
+          <div><small>Corrected p-value</small><b x-text="fmtP(sheet.p_final)"></b></div>
+          <div><small>Years of data</small><b x-text="sheet.stats.years"></b></div>
+          <div><small>Data needed to confirm</small><b x-text="detectText(sheet)"></b></div>
+        </div>
+        <h3 class="section-title">Simple regression vs corrected tests</h3>
+        <div class="list card">
+          <div class="row"><span class="row-text">Simple regression on raw data</span><span class="pill" :class="pClass(sheet.stats.naive.p)" x-text="fmtP(sheet.stats.naive.p)"></span></div>
+          <div class="row"><span class="row-text">Seasonal Mann-Kendall</span><span class="pill" :class="pClass(sheet.stats.seasonal_mk_p)" x-text="fmtP(sheet.stats.seasonal_mk_p)"></span></div>
+          <div class="row"><span class="row-text">Mann-Kendall, autocorrelation-corrected</span><span class="pill" :class="pClass(sheet.stats.hamed_rao_p)" x-text="fmtP(sheet.stats.hamed_rao_p)"></span></div>
+        </div>
+        <p class="muted" x-text="sheet.naive_vs_correct"></p>
+        <button class="secondary" @click="downloadCsv(sheet)"><span x-html="icon('download', 18)"></span> Download CSV</button>
+      </div>
+    </template>
+  </div>
+
+  <footer>
+    <span x-html="icon('satellite', 14)"></span>
+    Numbers are computed by Python code; explanations are template-based.
+    Data: NASA GPM, GLDAS, MERRA-2, MODIS, OMI, AIRS, POWER.
+  </footer>
+</body>
+</html>
