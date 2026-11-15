@@ -111,11 +111,11 @@
     },
     {
       "id": "airs_t",
-      "name": "Air temperature aloft",
+      "name": "Air temperature at 500 hPa",
       "topic": "temperature",
       "unit": "°C",
-      "definition": "Air temperature at a chosen height in the atmosphere (pressure level), measured by AIRS.",
-      "source": "AIRS (Giovanni)",
+      "definition": "Air temperature about 5.5 km above the ground (the 500 hPa pressure level), measured from space by AIRS.",
+      "source": "AIRS AIRS3STM, daytime, 500 hPa (Giovanni)",
       "power_param": null,
       "place_types": [
         "big_city"
