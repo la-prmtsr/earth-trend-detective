@@ -86,3 +86,23 @@ def fetch_power(lat: float, lon: float, params=("T2M", "PRECTOTCORR"),
         s[s <= -999] = np.nan
         out[p] = s
     return pd.DataFrame(out).sort_index()
+
+
+NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse"
+
+
+def reverse_geocode(lat: float, lon: float, lang: str = "en") -> str | None:
+    """Name of the place at a coordinate, from OpenStreetMap Nominatim (e.g. "Sapanca, Sakarya, Türkiye").
+    Returns None over open sea or when nothing is found. Only used to label custom coordinates."""
+    r = requests.get(NOMINATIM_URL, params={"format": "jsonv2", "lat": lat, "lon": lon, "zoom": 10,
+                                            "accept-language": lang},
+                     headers={"User-Agent": "EarthTrendDetective/1.0 (NASA Space Apps 2026 student project)"},
+                     timeout=8)
+    r.raise_for_status()
+    a = r.json().get("address")
+    if not a:
+        return None
+    local = next((a[k] for k in ("city", "town", "village", "municipality", "county", "district") if k in a), None)
+    region = a.get("province") or a.get("state") or a.get("region")
+    parts = [x for x in (local, region, a.get("country")) if x]
+    return ", ".join(dict.fromkeys(parts)) or None

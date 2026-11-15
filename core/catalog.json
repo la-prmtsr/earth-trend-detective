@@ -15,6 +15,7 @@
     {
       "id": "precip",
       "name": "Precipitation",
+      "name_tr": "Yağış miktarı",
       "topic": "water",
       "unit": "mm/day",
       "definition": "Rain and snow that falls from the sky, averaged per day.",
@@ -31,6 +32,7 @@
     {
       "id": "evap",
       "name": "Evapotranspiration",
+      "name_tr": "Evapotranspirasyon",
       "topic": "water",
       "unit": "mm/day",
       "definition": "Water that moves from soil, water surfaces and plants into the air.",
@@ -45,6 +47,7 @@
     {
       "id": "runoff",
       "name": "Surface runoff",
+      "name_tr": "Yüzey akışı",
       "topic": "water",
       "unit": "mm/day",
       "definition": "Rain water that flows over the ground toward streams and lakes instead of soaking in.",
@@ -58,6 +61,7 @@
     {
       "id": "soil",
       "name": "Soil moisture",
+      "name_tr": "Toprak nemi",
       "topic": "water",
       "unit": "kg/m²",
       "definition": "How wet or dry the top layer of the ground is.",
@@ -72,6 +76,7 @@
     {
       "id": "t2m",
       "name": "Air temperature (2 m)",
+      "name_tr": "Hava sıcaklığı (2 m)",
       "topic": "temperature",
       "unit": "°C",
       "definition": "The air temperature 2 meters above the ground: the temperature we feel.",
@@ -88,6 +93,7 @@
     {
       "id": "lake_lst",
       "name": "Lake surface temperature",
+      "name_tr": "Göl yüzey sıcaklığı",
       "topic": "temperature",
       "unit": "°C",
       "definition": "The temperature of the lake's surface, measured by the satellite in infrared.",
@@ -100,6 +106,7 @@
     {
       "id": "no2",
       "name": "Tropospheric NO2",
+      "name_tr": "Troposferik NO₂",
       "topic": "air",
       "unit": "10¹⁵ molecules/cm²",
       "definition": "Nitrogen dioxide in the lower atmosphere, mostly from traffic and industry; a sign of air pollution.",
@@ -112,6 +119,7 @@
     {
       "id": "airs_t",
       "name": "Air temperature at 500 hPa",
+      "name_tr": "Üst atmosfer sıcaklığı",
       "topic": "temperature",
       "unit": "°C",
       "definition": "Air temperature about 5.5 km above the ground (the 500 hPa pressure level), measured from space by AIRS.",
@@ -124,6 +132,7 @@
     {
       "id": "ndvi",
       "name": "Vegetation greenness (NDVI)",
+      "name_tr": "Bitki örtüsü indeksi (NDVI)",
       "topic": "vegetation",
       "unit": "0–1",
       "definition": "A number from 0 to 1 that shows how green and alive the plants are.",

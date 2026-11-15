@@ -39,3 +39,36 @@ def naive_vs_correct(r: dict) -> str:
                 "and correcting for autocorrelation it is not. Simple methods can see trends that are not there.")
     return ("A simple regression on the raw data misses this trend because the seasonal cycle hides it; "
             "after removing the seasonal cycle, the corrected tests find it. Simple methods can also miss real trends.")
+
+
+def explain_tr(name: str, unit: str, r: dict, p_adj: float | None = None) -> str:
+    """Turkish version of explain(): same numbers from the same result, only the sentence differs."""
+    slope = r["sen_slope_per_year"]
+    lo, hi = r["ci95"]
+    p = p_adj if p_adj is not None else r["hamed_rao_p"]
+    direction = "artıyor" if slope > 0 else "azalıyor"
+    name = name[:1].lower() + name[1:]  # mid-sentence
+    text = (f"{r['years']} yıllık veride {name} her on yılda yaklaşık {abs(slope) * 10:.3g} {unit} {direction} "
+            f"(%95 aralığı: {lo * 10:+.3g} ile {hi * 10:+.3g}). ")
+    label = "FDR düzeltmeli" if p_adj is not None else "otokorelasyon düzeltmeli"
+    if p < ALPHA:
+        text += f"Bu eğilim istatistiksel olarak anlamlı ({label} {fmt_p(p)})."
+    else:
+        need = r["years_to_detect"]
+        text += f"İstatistiksel olarak anlamlı bir eğilim bulunamadı ({label} {fmt_p(p)}). "
+        if need != float("inf"):
+            text += (f"Kaba bir tahminle, bu hız ve gürültü sürerse tespit için toplam yaklaşık {need:.0f} yıllık "
+                     f"kayıt gerekir (elimizde {r['years']} yıl var). Anlamlı olmaması, değişim olmadığı anlamına gelmez.")
+    return text
+
+
+def naive_vs_correct_tr(r: dict) -> str:
+    n = r["naive"]["p"] < ALPHA
+    c = r["hamed_rao_p"] < ALPHA
+    if n == c:
+        return "Basit regresyon ve düzeltilmiş test burada aynı sonucu veriyor."
+    if n and not c:
+        return ("Basit regresyon bu eğilimi anlamlı buluyor; ancak mevsim döngüsü çıkarılıp otokorelasyon "
+                "düzeltildiğinde anlamlı değil. Basit yöntemler olmayan eğilimleri görebilir.")
+    return ("Ham veriye basit regresyon bu eğilimi kaçırıyor, çünkü mevsim döngüsü onu gizliyor; mevsim döngüsü "
+            "çıkarıldıktan sonra düzeltilmiş testler buluyor. Basit yöntemler gerçek eğilimleri de kaçırabilir.")

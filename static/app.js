@@ -46,6 +46,9 @@ const I18N = {
     exQ2: "Where?",
     exQ3: "What kind of place is it?",
     customCoords: "Custom coordinates",
+    placeSearching: "Finding the place…",
+    placeUnknown: "No named place here (open sea?)",
+    osmCredit: "Place names © OpenStreetMap contributors",
     latLabel: "Latitude (-90 to 90)",
     lonLabel: "Longitude (-180 to 180)",
     suggestedTitle: "Suggested NASA variables",
@@ -129,6 +132,9 @@ const I18N = {
     exQ2: "Nerede?",
     exQ3: "Burası nasıl bir yer?",
     customCoords: "Özel koordinatlar",
+    placeSearching: "Yer aranıyor…",
+    placeUnknown: "Burada adı bilinen bir yer yok (açık deniz olabilir)",
+    osmCredit: "Yer adları © OpenStreetMap katkıcıları",
     latLabel: "Enlem (-90 ile 90 arası)",
     lonLabel: "Boylam (-180 ile 180 arası)",
     suggestedTitle: "Önerilen NASA değişkenleri",
@@ -324,10 +330,6 @@ function savedLang() {
 function trendApp() {
   return {
     lang: savedLang(),
-    booting: true,
-    bootProgress: 0,
-    bootStatus: "Initializing NASA Earthdata telemetry...",
-    _bootTimer: null,
 
     tabs: [
       { id: "case1", icon: "waves" },
@@ -346,6 +348,7 @@ function trendApp() {
     sheet: null,
     cmp: { var: "t2m", a: "rize", b: "konya", results: [] },
     ex: { topic: "water", place: "sapanca", type: "lake_basin", lat: 40.69, lon: 30.27 },
+    placeLabel: null, placeState: "", _placeTimer: null,
 
     t(key) {
       return (I18N[this.lang] && I18N[this.lang][key]) || I18N.en[key] || key;
@@ -357,6 +360,7 @@ function trendApp() {
       try {
         localStorage.setItem("lang", code);
       } catch (e) {}
+      if (this.ex.place === "custom") this.lookupPlace();
       if (this.sheet) {
         this.$nextTick(() => drawChart("sheet-chart", this.sheet, this.lang));
       }
@@ -380,47 +384,8 @@ function trendApp() {
       return this.lang === "tr" && PLACE_TYPE_TR[k] ? PLACE_TYPE_TR[k] : fallback;
     },
 
-    startLoader() {
-      if (this._bootTimer) clearInterval(this._bootTimer);
-      this.booting = true;
-      this.bootProgress = 0;
-      this.bootStatus =
-        this.lang === "tr"
-          ? "Yörünge sensörleri hizalanıyor (GPM, GLDAS, MERRA-2)..."
-          : "Aligning orbital sensors (GPM, GLDAS, MERRA-2)...";
-
-      this._bootTimer = setInterval(() => {
-        if (this.bootProgress < 42) {
-          this.bootProgress += 7;
-        } else if (this.bootProgress < 84) {
-          this.bootProgress += 6;
-          this.bootStatus =
-            this.lang === "tr"
-              ? "Mevsimsel döngüler arındırılıyor..."
-              : "Stripping seasonal cycles & checking autocorrelation...";
-        } else if (this.bootProgress < 100) {
-          this.bootProgress = Math.min(100, this.bootProgress + 4);
-          this.bootStatus =
-            this.lang === "tr"
-              ? "FDR anlamlılık eşikleri kalibre ediliyor..."
-              : "Calibrating FDR significance thresholds...";
-        } else {
-          clearInterval(this._bootTimer);
-          this.bootStatus = this.lang === "tr" ? "Telemetri kilitlendi." : "Telemetry locked.";
-          setTimeout(() => {
-            this.booting = false;
-          }, 420);
-        }
-      }, 65);
-    },
-
-    replayLoader() {
-      this.startLoader();
-    },
-
     async init() {
       document.documentElement.lang = this.lang;
-      this.startLoader();
       try {
         const res = await fetch("/api/catalog").then(r => r.json());
         this.catalog = res.catalog;
@@ -457,14 +422,14 @@ function trendApp() {
           return {
             kicker: "VAKA 1 · SAPANCA GÖLÜ HAVZASI",
             sensorNote: "GPM IMERG · GLDAS NOAH · MERRA-2 · MODIS LST",
-            headline: "Sapanca Gölü havzası: kara ve su döngüsü",
+            headline: "Sapanca Gölü havzası",
             desc: "Sapanca Gölü, Sakarya'nın içme suyunun yaklaşık %70'ini karşılar. Göl çevresindeki hangi iklim değişkenleri uzun vadeli eğilim gösteriyor? Göl aktif olarak yönetilmektedir; bu araç yalnızca iklim tarafını gösterir, su çekimlerini modellemez.",
           };
         }
         return {
           kicker: "CASE 1 · SAPANCA LAKE BASIN",
           sensorNote: "GPM IMERG · GLDAS NOAH · MERRA-2 · MODIS LST",
-          headline: this.cases.case1?.title || "Sapanca Lake basin: land and water cycle",
+          headline: this.cases.case1?.title || "Sapanca Lake basin",
           desc:
             this.cases.case1?.intro ||
             "Sapanca Lake supplies about 70% of Sakarya's drinking water. Which climate variables around the lake show a long-term trend? The lake is actively managed; this tool shows the climate side only and does not model withdrawals or transfers.",
@@ -688,6 +653,23 @@ function trendApp() {
     pickPlace(k) {
       const p = this.places[k];
       Object.assign(this.ex, { place: k, lat: p.lat, lon: p.lon, type: p.type });
+    },
+
+    // Custom coordinates: show the place name (OpenStreetMap via our server), with a short delay while typing.
+    lookupPlace() {
+      clearTimeout(this._placeTimer);
+      const lat = Number(this.ex.lat), lon = Number(this.ex.lon);
+      if (this.ex.place !== "custom" || !Number.isFinite(lat) || !Number.isFinite(lon)) return;
+      this.placeState = "searching";
+      this._placeTimer = setTimeout(async () => {
+        try {
+          const r = await fetch(`/api/place?lat=${lat}&lon=${lon}&lang=${this.lang}`).then(x => x.json());
+          this.placeLabel = r.name;
+          this.placeState = r.name ? "found" : "unknown";
+        } catch (e) {
+          this.placeState = "";
+        }
+      }, 700);
     },
 
     async fetchPower(varId, lat, lon) {

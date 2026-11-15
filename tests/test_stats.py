@@ -76,3 +76,15 @@ def test_seasonal_cycle_hides_trend_from_simple_regression():
     assert r["naive"]["p"] > 0.05
     assert r["ols_corrected"]["p_uncorrected"] < 0.05
     assert r["ols_corrected"]["p_uncorrected"] <= r["ols_corrected"]["p"]
+
+
+def test_turkish_sentence_uses_the_same_numbers():
+    from core.explain import explain, explain_tr, fmt_p
+    for trend in (0.05, 0.0):
+        r = analyze(make_series(trend, seed=3))
+        en, tr = explain("X", "°C", r), explain_tr("X", "°C", r)
+        slope = f"{abs(r['sen_slope_per_year']) * 10:.3g}"
+        p = fmt_p(r["hamed_rao_p"])
+        assert slope in en and slope in tr
+        assert p in en and p in tr
+        assert str(r["years"]) in tr

@@ -13,8 +13,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from core.config import CASES, CONVERT, PLACES
-from core.data_sources import fetch_power, load_giovanni_csv, load_power_cache
-from core.explain import explain, naive_vs_correct
+from core.data_sources import fetch_power, load_giovanni_csv, load_power_cache, reverse_geocode
+from core.explain import explain, explain_tr, naive_vs_correct, naive_vs_correct_tr
 from core.stats_engine import analyze, fdr_adjust
 
 ROOT = pathlib.Path(__file__).resolve().parent
@@ -95,6 +95,8 @@ def result_payload(var_id: str, s, p_adj: float | None = None, r: dict | None = 
         "p_method": r.get("acp_method", "hamed_rao"),
         "explanation": explain(v["name"], unit, r, p_adj),
         "naive_vs_correct": naive_vs_correct(r),
+        "explanation_tr": explain_tr(v.get("name_tr", v["name"]), unit, r, p_adj),
+        "naive_vs_correct_tr": naive_vs_correct_tr(r),
         "events": [{k: e[k] for k in ("start", "end", "label")} for e in (events or [])],
     })
 
@@ -162,6 +164,23 @@ def power(var_id: str, lat: float, lon: float):
         return _power_payload(var_id, lat, lon)
     except Exception as e:  # network error etc.
         raise HTTPException(502, f"NASA POWER request failed: {e}")
+
+
+@lru_cache(maxsize=256)
+def _place_name(lat: float, lon: float, lang: str):
+    return reverse_geocode(lat, lon, lang)
+
+
+@app.get("/api/place")
+def place(lat: float, lon: float, lang: str = "en"):
+    """Label for custom coordinates (OpenStreetMap). Never fails: name is null if unknown or offline."""
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        return {"name": None, "source": "OpenStreetMap"}
+    try:
+        name = _place_name(round(lat, 2), round(lon, 2), "tr" if lang == "tr" else "en")
+    except Exception:
+        name = None
+    return {"name": name, "source": "OpenStreetMap"}
 
 
 @app.get("/")

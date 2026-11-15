@@ -41,7 +41,7 @@ CASES = {
 }
 
 PLACES = {  # approximate coordinates
-    "sapanca": {"name": "Sapanca Lake", "lat": 40.69, "lon": 30.27, "type": "lake_basin"},
+    "sapanca": {"name": "Sapanca", "lat": 40.69, "lon": 30.27, "type": "lake_basin"},
     "istanbul": {"name": "Istanbul", "lat": 41.01, "lon": 28.98, "type": "big_city"},
     "konya": {"name": "Konya", "lat": 37.87, "lon": 32.49, "type": "dry_inland"},
     "rize": {"name": "Rize", "lat": 41.02, "lon": 40.52, "type": "coast_forest"},

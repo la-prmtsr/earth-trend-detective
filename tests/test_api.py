@@ -104,3 +104,17 @@ def test_payload_says_which_p_value_it_shows(monkeypatch, tmp_path):
         assert v["p_kind"] == "fdr_bh" and v["p_final"] >= v["p_raw"]
         assert "FDR-adjusted" in v["explanation"]
     server._case.cache_clear()
+
+
+def test_place_name_for_custom_coordinates(monkeypatch):
+    monkeypatch.setattr(server, "reverse_geocode", lambda lat, lon, lang: "Sapanca, Sakarya, Türkiye")
+    server._place_name.cache_clear()
+    r = TestClient(server.app).get("/api/place", params={"lat": 40.69, "lon": 30.27, "lang": "tr"}).json()
+    assert r["name"] == "Sapanca, Sakarya, Türkiye"
+
+    def offline(*a):
+        raise OSError("no network")
+    monkeypatch.setattr(server, "reverse_geocode", offline)
+    server._place_name.cache_clear()
+    assert TestClient(server.app).get("/api/place", params={"lat": 1.0, "lon": 2.0}).json()["name"] is None
+    server._place_name.cache_clear()

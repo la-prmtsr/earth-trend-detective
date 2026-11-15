@@ -70,19 +70,22 @@
         </div>
       </template>
 
-      <!-- Explore tab: facts are skipped because they repeat the 3 questions below -->
-      <div class="facts" x-show="tab !== 'explore'">
-        <template x-for="(k, idx) in heroKpis()" :key="tab + idx">
-          <div class="fact" :style="'--i:' + idx">
-            <div class="fact-label" x-text="k.label"></div>
-            <div class="fact-value" x-effect="countUp($el, k.value)"></div>
-            <div class="fact-foot" x-text="k.foot"></div>
-          </div>
-        </template>
-      </div>
     </div>
 
   </section>
+
+      <!-- Explore tab: facts are skipped because they repeat the 3 questions below -->
+    <div class="wrap facts-strip" x-cloak x-show="tab !== 'explore'">
+    <div class="facts">
+      <template x-for="(k, idx) in heroKpis()" :key="tab + idx">
+        <div class="fact" :style="'--i:' + idx">
+          <div class="fact-label" x-text="k.label"></div>
+          <div class="fact-value" x-effect="countUp($el, k.value)"></div>
+          <div class="fact-foot" x-text="k.foot"></div>
+        </div>
+      </template>
+    </div>
+    </div>
 
   <main class="wrap" x-cloak>
 
@@ -213,7 +216,7 @@
               </div>
               <div class="r-rate num" x-text="perDecade(r)"></div>
               <div class="chart" :id="'cmp-chart-' + i"></div>
-              <p class="r-exp" x-text="r.explanation"></p>
+              <p class="r-exp" x-text="(lang === 'tr' && r.explanation_tr) || r.explanation"></p>
               <button class="link" @click="open(r)">
                 <span x-text="t('inspectProof')"></span>
                 <span x-html="icon('chevron-right', 15)"></span>
@@ -250,7 +253,7 @@
                     <span x-text="p.name"></span>
                   </button>
                 </template>
-                <button class="chip" :class="{ on: ex.place === 'custom' }" @click="ex.place = 'custom'">
+                <button class="chip" :class="{ on: ex.place === 'custom' }" @click="ex.place = 'custom'; lookupPlace()">
                   <span x-html="icon('compass', 15)"></span>
                   <span x-text="t('customCoords')"></span>
                 </button>
@@ -258,12 +261,17 @@
               <div class="grid2 coords-row" x-show="ex.place === 'custom'">
                 <div>
                   <label class="label sub" x-text="t('latLabel')"></label>
-                  <input class="input" type="number" step="0.01" x-model.number="ex.lat">
+                  <input class="input" type="number" step="0.01" x-model.number="ex.lat" @input="lookupPlace()">
                 </div>
                 <div>
                   <label class="label sub" x-text="t('lonLabel')"></label>
-                  <input class="input" type="number" step="0.01" x-model.number="ex.lon">
+                  <input class="input" type="number" step="0.01" x-model.number="ex.lon" @input="lookupPlace()">
                 </div>
+              </div>
+              <div class="place-found" x-show="ex.place === 'custom' && placeState">
+                <span x-html="icon('map-pin', 15)"></span>
+                <strong x-text="placeState === 'searching' ? t('placeSearching') : (placeState === 'found' ? placeLabel : t('placeUnknown'))"></strong>
+                <small x-show="placeState === 'found'" x-text="t('osmCredit')"></small>
               </div>
             </div>
 
@@ -377,7 +385,7 @@
             <span x-text="combinedSummary(sheet).badge"></span>
           </div>
           <p class="tk-lead" x-text="combinedSummary(sheet).lead"></p>
-          <p class="tk-official" x-text="sheet.explanation"></p>
+          <p class="tk-official" x-text="(lang === 'tr' && sheet.explanation_tr) || sheet.explanation"></p>
         </div>
 
         <h3 x-text="t('naiveTitle')"></h3>
@@ -403,7 +411,7 @@
             <span class="p" :class="pClass(sheet.stats.hamed_rao_p)" x-text="pText(sheet.stats.hamed_rao_p)"></span>
           </div>
         </div>
-        <p class="naive-note" x-text="sheet.naive_vs_correct"></p>
+        <p class="naive-note" x-text="(lang === 'tr' && sheet.naive_vs_correct_tr) || sheet.naive_vs_correct"></p>
 
         <div class="sheet-foot">
           <button class="btn ghost" @click="downloadCsv(sheet)">
