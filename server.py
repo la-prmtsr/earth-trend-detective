@@ -1,6 +1,7 @@
 """Trend Detective - FastAPI server.
 Run:  uvicorn server:app --reload     ->  open http://127.0.0.1:8000
 Every number is computed by the Python code in core/; the front end (static/) only displays it."""
+import time
 import json
 import math
 import pathlib
@@ -194,10 +195,15 @@ def geocode(q: str, lang: str = "en"):
     q = q.strip()[:80]
     if len(q) < 2:
         return {"results": [], "source": "OpenStreetMap"}
-    try:
-        return {"results": _search(q.lower(), "tr" if lang == "tr" else "en"), "source": "OpenStreetMap"}
-    except Exception:
-        return {"results": [], "error": True, "source": "OpenStreetMap"}
+    lang = "tr" if lang == "tr" else "en"
+    for attempt in range(2):  # OpenStreetMap sometimes times out or rate-limits: try once more
+        try:
+            return {"results": _search(q.lower(), lang), "source": "OpenStreetMap"}
+        except Exception as e:
+            err = f"{type(e).__name__}: {e}"[:200]
+            print(f"[geocode] attempt {attempt + 1} failed for {q!r}: {err}", flush=True)
+            time.sleep(1.1)
+    return {"results": [], "error": True, "detail": err, "source": "OpenStreetMap"}
 
 
 @app.get("/")
