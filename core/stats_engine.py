@@ -1,7 +1,11 @@
-"""Trend Dedektifi - istatistik motoru.
+"""Trend Detective - statistics engine.
 
-Tum sayilar burada, deterministik olarak hesaplanir. LLM sayi uretmez.
-Girdi: aylik pandas Series (index = ayin ilk gunu, DatetimeIndex).
+Every number is computed here, deterministically.
+Input: a monthly pandas Series (DatetimeIndex, first day of each month).
+
+Missing months: real records have gaps (for example no satellite retrieval in cloudy months).
+Instead of squeezing the series together, it is placed on a full monthly grid (gaps stay NaN),
+so every month keeps its season and slopes are measured against real time.
 """
 import numpy as np
 import pandas as pd
@@ -10,22 +14,31 @@ from scipy import stats
 from statsmodels.stats.multitest import multipletests
 
 
+def monthly_grid(s: pd.Series) -> pd.Series:
+    """Place the series on an unbroken monthly grid from first to last month; absent months become NaN."""
+    return s.astype(float).dropna().resample("MS").mean()
+
+
 def monthly_anomaly(s: pd.Series) -> pd.Series:
-    """Mevsimselligi cikar: her degerden o ayin uzun donem ortalamasini cikar."""
+    """Remove the seasonal cycle: subtract each calendar month's long-term mean."""
     s = s.astype(float)
     clim = s.groupby(s.index.month).transform("mean")
     return s - clim
 
 
 def lag1_autocorr(x: np.ndarray) -> float:
-    x = x[~np.isnan(x)]
-    if len(x) < 3:
+    """Lag-1 autocorrelation. On a monthly grid with NaN gaps, only pairs of consecutive observed months count."""
+    x = np.asarray(x, dtype=float)
+    a, b = x[:-1], x[1:]
+    ok = ~np.isnan(a) & ~np.isnan(b)
+    if ok.sum() < 3:
         return 0.0
-    return float(np.corrcoef(x[:-1], x[1:])[0, 1])
+    r = float(np.corrcoef(a[ok], b[ok])[0, 1])
+    return 0.0 if np.isnan(r) else r
 
 
 def naive_ols(s: pd.Series) -> dict:
-    """Ham seriye duz regresyon (rakip takimlarin yapacagi 'naif' analiz)."""
+    """Plain linear regression on the raw series (the 'naive' analysis, kept for comparison)."""
     s = s.dropna()
     t_years = np.asarray((s.index - s.index[0]).days) / 365.25
     res = stats.linregress(t_years, s.values)
@@ -33,12 +46,12 @@ def naive_ols(s: pd.Series) -> dict:
 
 
 def ols_corrected(anom: pd.Series) -> dict:
-    """Anomali serisine OLS + otokorelasyona gore etkin orneklem duzeltmesi."""
+    """OLS on the anomalies with an effective-sample-size correction for autocorrelation (corrected t-test)."""
     a = anom.dropna()
     t_years = np.asarray((a.index - a.index[0]).days) / 365.25
     res = stats.linregress(t_years, a.values)
-    resid = a.values - (res.intercept + res.slope * t_years)
-    r1 = lag1_autocorr(resid)
+    resid = pd.Series(a.values - (res.intercept + res.slope * t_years), index=a.index)
+    r1 = lag1_autocorr(monthly_grid(resid).values)
     n = len(a)
     n_eff = max(3.0, n * (1 - r1) / (1 + r1)) if r1 > 0 else n
     se = res.stderr * np.sqrt((n - 2) / max(n_eff - 2, 1))
@@ -48,18 +61,17 @@ def ols_corrected(anom: pd.Series) -> dict:
 
 
 def sen_slope_per_year(anom: pd.Series) -> float:
-    """Sen egimi: aylik adim basina egim x 12 = yillik egim."""
-    a = anom.dropna().values
-    return float(mk.sens_slope(a).slope * 12)
+    """Sen's slope: slope per monthly step x 12 = slope per year. Gaps do not shift the time axis."""
+    return float(mk.sens_slope(monthly_grid(anom).values).slope * 12)
 
 
 def block_bootstrap_ci(anom: pd.Series, n_boot: int = 300, block: int = 12, seed: int = 42):
-    """Sen egimi icin %95 guven araligi (hareketli blok bootstrap, 12 aylik bloklar)."""
-    a = anom.dropna().values
+    """95% confidence interval for Sen's slope (moving-block bootstrap, 12-month blocks)."""
+    a = monthly_grid(anom).values
     n = len(a)
     rng = np.random.default_rng(seed)
     t = np.arange(n)
-    trend = sen_slope_per_year(anom) / 12 * t
+    trend = mk.sens_slope(a).slope * t
     resid = a - trend
     slopes = []
     n_blocks = int(np.ceil(n / block))
@@ -67,15 +79,15 @@ def block_bootstrap_ci(anom: pd.Series, n_boot: int = 300, block: int = 12, seed
         starts = rng.integers(0, n - block + 1, n_blocks)
         sample = np.concatenate([resid[s:s + block] for s in starts])[:n]
         slopes.append(mk.sens_slope(sample + trend).slope * 12)
-    lo, hi = np.percentile(slopes, [2.5, 97.5])
+    lo, hi = np.nanpercentile(slopes, [2.5, 97.5])
     return float(lo), float(hi)
 
 
 def years_to_detect(anom: pd.Series, slope_per_year: float) -> float:
-    """Weatherhead ve ark. (1998): bu gurultuyle trendin tespiti icin gereken yil sayisi.
+    """Weatherhead et al. (1998): years of data needed to detect the trend at this noise level.
     n* = [ (3.3 * sigma_N / |w0|) * sqrt((1+phi)/(1-phi)) ] ** (2/3)
-    sigma_N: trend cikarilmis aylik anomalilerin standart sapmasi, phi: lag-1 otokorelasyon,
-    w0: yillik trend. Aylik veri icindir; sonuc yil cinsindendir."""
+    sigma_N: standard deviation of the detrended monthly anomalies, phi: lag-1 autocorrelation,
+    w0: trend per year. Meant for monthly data; the result is in years."""
     if slope_per_year == 0:
         return float("inf")
     a = anom.dropna()
@@ -83,13 +95,14 @@ def years_to_detect(anom: pd.Series, slope_per_year: float) -> float:
     resid = a.values - slope_per_year * t_years
     resid = resid - resid.mean()
     sigma = float(np.std(resid, ddof=1))
-    phi = min(max(lag1_autocorr(resid), -0.95), 0.95)
+    phi = lag1_autocorr(monthly_grid(pd.Series(resid, index=a.index)).values)
+    phi = min(max(phi, -0.95), 0.95)
     return float(((3.3 * sigma / abs(slope_per_year)) * np.sqrt((1 + phi) / (1 - phi))) ** (2 / 3))
 
 
 def autocorr_corrected_p(x: np.ndarray) -> float:
-    """Otokorelasyon duzeltmeli Mann-Kendall p-degeri.
-    Once Hamed-Rao; sayisal sorun (NaN) olursa Yue-Wang, o da olmazsa on-beyazlatma (pre-whitening)."""
+    """Autocorrelation-corrected Mann-Kendall p-value.
+    Hamed-Rao first; on a numerical problem (NaN) fall back to Yue-Wang, then to pre-whitening."""
     for test in (mk.hamed_rao_modification_test, mk.yue_wang_modification_test,
                  mk.pre_whitening_modification_test):
         try:
@@ -102,16 +115,18 @@ def autocorr_corrected_p(x: np.ndarray) -> float:
 
 
 def analyze(s: pd.Series) -> dict:
-    """Tek bir aylik seri icin tum kartlarin ihtiyac duydugu sayilar."""
+    """All the numbers the cards need for one monthly series."""
     s = s.astype(float).dropna()
-    anom = monthly_anomaly(s)
-    seasonal = mk.seasonal_test(s.values, period=12)
+    grid = monthly_grid(s)                      # gaps stay NaN; seasons stay aligned
+    anom = monthly_anomaly(grid).dropna()       # anomalies of the observed months
+    seasonal = mk.seasonal_test(grid.values, period=12)
     acp = autocorr_corrected_p(anom.values)
     sen = sen_slope_per_year(anom)
     lo, hi = block_bootstrap_ci(anom)
     years = (s.index[-1] - s.index[0]).days / 365.25
     return {
         "n_months": int(len(s)),
+        "n_missing": int(grid.isna().sum()),
         "years": round(years, 1),
         "naive": naive_ols(s),
         "ols_corrected": ols_corrected(anom),
@@ -125,7 +140,7 @@ def analyze(s: pd.Series) -> dict:
 
 
 def fdr_adjust(pvals: dict) -> dict:
-    """Supheli panosundaki tum testlere Benjamini-Hochberg (FDR) duzeltmesi."""
+    """Benjamini-Hochberg (FDR) correction across all tests on a suspect board."""
     names = list(pvals)
     _, p_adj, _, _ = multipletests([pvals[k] for k in names], method="fdr_bh")
     return dict(zip(names, map(float, p_adj)))

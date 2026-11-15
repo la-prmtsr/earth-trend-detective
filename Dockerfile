@@ -1,4 +1,4 @@
-# Yedek yayin yolu (Render Docker, Railway, Hugging Face Spaces vb.)
+# Alternative deployment path (any Docker host)
 FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
