@@ -21,6 +21,22 @@ ROOT = pathlib.Path(__file__).resolve().parent
 CAT = json.loads((ROOT / "core" / "catalog.json").read_text(encoding="utf-8"))
 VARS = {v["id"]: v for v in CAT["variables"]}
 POWER_CACHE = ROOT / "data" / "power_cache"  # saved POWER responses for the preset places (scripts/cache_power.py)
+RESULTS = ROOT / "data" / "results_cache"    # precomputed API answers (scripts/precompute.py)
+
+
+def _load_precomputed() -> dict:
+    out = {}
+    if RESULTS.exists():
+        for f in RESULTS.glob("*.json"):
+            out[f.stem] = json.loads(f.read_text(encoding="utf-8"))
+    return out
+
+
+PRECOMPUTED = _load_precomputed()  # served as-is, so the free server does no heavy math on a click
+
+
+def power_key(var_id: str, lat: float, lon: float) -> str:
+    return f"power_{var_id}_{lat:.2f}_{lon:.2f}"
 
 app = FastAPI(title="Trend Detective")
 import threading
@@ -29,9 +45,12 @@ def _warm_all():
     """Compute the case files and every cached preset place in the background,
     so the first click in the app is instant."""
     for c in CASES:
-        _case(c)
+        if "case_" + c not in PRECOMPUTED:
+            _case(c)
     for p in PLACES.values():
         for var_id, v in VARS.items():
+            if power_key(var_id, round(p["lat"], 2), round(p["lon"], 2)) in PRECOMPUTED:
+                continue
             if v.get("power_param") and load_power_cache(POWER_CACHE, p["lat"], p["lon"], v["power_param"]) is not None:
                 try:
                     _power_payload(var_id, round(p["lat"], 2), round(p["lon"], 2))
@@ -108,7 +127,7 @@ def _case(case_id: str) -> dict:
 def case(case_id: str):
     if case_id not in CASES:
         raise HTTPException(404, "Unknown case")
-    return _case(case_id)
+    return PRECOMPUTED.get("case_" + case_id) or _case(case_id)
 
 
 @lru_cache(maxsize=64)
@@ -131,8 +150,12 @@ def power(var_id: str, lat: float, lon: float):
     v = VARS.get(var_id)
     if not v or not v["power_param"]:
         raise HTTPException(400, "This variable is not available live")
+    lat, lon = round(lat, 2), round(lon, 2)
+    hit = PRECOMPUTED.get(power_key(var_id, lat, lon))
+    if hit:
+        return hit
     try:
-        return _power_payload(var_id, round(lat, 2), round(lon, 2))
+        return _power_payload(var_id, lat, lon)
     except Exception as e:  # network error etc.
         raise HTTPException(502, f"NASA POWER request failed: {e}")
 
