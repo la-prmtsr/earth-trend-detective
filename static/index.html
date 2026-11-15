@@ -390,6 +390,10 @@
             <span x-text="t('naiveRow3')"></span>
             <span class="p" :class="pClass(sheet.stats.hamed_rao_p)" x-text="'p = ' + fmtP(sheet.stats.hamed_rao_p)"></span>
           </div>
+          <div class="test-row">
+            <span x-text="t('naiveRow4')"></span>
+            <span class="p" :class="pClass(sheet.stats.ols_corrected.p)" x-text="'p = ' + fmtP(sheet.stats.ols_corrected.p)"></span>
+          </div>
         </div>
         <p class="naive-note" x-text="sheet.naive_vs_correct"></p>
 
