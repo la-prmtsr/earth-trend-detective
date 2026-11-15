@@ -22,7 +22,11 @@ CAT = json.loads((ROOT / "core" / "catalog.json").read_text(encoding="utf-8"))
 VARS = {v["id"]: v for v in CAT["variables"]}
 
 app = FastAPI(title="Trend Detective")
+import threading
 
+@app.on_event("startup")
+def warm_up():
+    threading.Thread(target=lambda: [_case(c) for c in CASES], daemon=True).start()
 
 def clean(x):
     """Make a value JSON-safe: NaN/infinity -> None, numpy numbers -> float."""
