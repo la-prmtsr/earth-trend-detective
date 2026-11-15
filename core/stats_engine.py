@@ -46,7 +46,9 @@ def naive_ols(s: pd.Series) -> dict:
 
 
 def ols_corrected(anom: pd.Series) -> dict:
-    """OLS on the anomalies with an effective-sample-size correction for autocorrelation (corrected t-test)."""
+    """OLS on the anomalies with an effective-sample-size correction for autocorrelation (corrected t-test).
+    p_uncorrected is the same regression before the autocorrelation correction, so the effect of each
+    step can be seen separately: raw data (naive_ols) -> seasonal cycle removed -> autocorrelation corrected."""
     a = anom.dropna()
     t_years = np.asarray((a.index - a.index[0]).days) / 365.25
     res = stats.linregress(t_years, a.values)
@@ -57,7 +59,8 @@ def ols_corrected(anom: pd.Series) -> dict:
     se = res.stderr * np.sqrt((n - 2) / max(n_eff - 2, 1))
     t = res.slope / se if se > 0 else 0.0
     p = 2 * stats.t.sf(abs(t), df=max(n_eff - 2, 1))
-    return {"slope_per_year": float(res.slope), "p": float(p), "r1": r1, "n_eff": float(n_eff)}
+    return {"slope_per_year": float(res.slope), "p": float(p), "p_uncorrected": float(res.pvalue),
+            "r1": r1, "n_eff": float(n_eff)}
 
 
 def sen_slope_per_year(anom: pd.Series) -> float:
@@ -100,18 +103,27 @@ def years_to_detect(anom: pd.Series, slope_per_year: float) -> float:
     return float(((3.3 * sigma / abs(slope_per_year)) * np.sqrt((1 + phi) / (1 - phi))) ** (2 / 3))
 
 
-def autocorr_corrected_p(x: np.ndarray) -> float:
-    """Autocorrelation-corrected Mann-Kendall p-value.
+AUTOCORR_TESTS = (("hamed_rao", mk.hamed_rao_modification_test),
+                  ("yue_wang", mk.yue_wang_modification_test),
+                  ("pre_whitening", mk.pre_whitening_modification_test))
+
+
+def autocorr_corrected_test(x: np.ndarray) -> tuple[float, str]:
+    """Autocorrelation-corrected Mann-Kendall p-value and the name of the method that produced it.
     Hamed-Rao first; on a numerical problem (NaN) fall back to Yue-Wang, then to pre-whitening."""
-    for test in (mk.hamed_rao_modification_test, mk.yue_wang_modification_test,
-                 mk.pre_whitening_modification_test):
+    for name, test in AUTOCORR_TESTS:
         try:
             p = float(test(x).p)
         except Exception:
             continue
         if not np.isnan(p):
-            return p
-    return float("nan")
+            return p, name
+    return float("nan"), "none"
+
+
+def autocorr_corrected_p(x: np.ndarray) -> float:
+    """p-value only (see autocorr_corrected_test)."""
+    return autocorr_corrected_test(x)[0]
 
 
 def analyze(s: pd.Series) -> dict:
@@ -120,7 +132,7 @@ def analyze(s: pd.Series) -> dict:
     grid = monthly_grid(s)                      # gaps stay NaN; seasons stay aligned
     anom = monthly_anomaly(grid).dropna()       # anomalies of the observed months
     seasonal = mk.seasonal_test(grid.values, period=12)
-    acp = autocorr_corrected_p(anom.values)
+    acp, acp_method = autocorr_corrected_test(anom.values)
     sen = sen_slope_per_year(anom)
     lo, hi = block_bootstrap_ci(anom)
     years = (s.index[-1] - s.index[0]).days / 365.25
@@ -131,7 +143,8 @@ def analyze(s: pd.Series) -> dict:
         "naive": naive_ols(s),
         "ols_corrected": ols_corrected(anom),
         "seasonal_mk_p": float(seasonal.p),
-        "hamed_rao_p": acp,
+        "hamed_rao_p": acp,               # decision test; key name kept for the front end
+        "acp_method": acp_method,         # which autocorrelation-corrected test actually ran
         "sen_slope_per_year": sen,
         "ci95": (lo, hi),
         "years_to_detect": years_to_detect(anom, sen),
