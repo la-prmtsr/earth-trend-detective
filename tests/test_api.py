@@ -18,6 +18,7 @@ def fake_series(trend=0.05, seed=0):
 def test_catalog():
     c = TestClient(server.app).get("/api/catalog").json()
     assert "variables" in c["catalog"] and "sapanca" in c["places"]
+    assert "evap" in c["cases"]["case1"]["vars"] and "no2" in c["cases"]["case2"]["vars"]
 
 
 def test_power_endpoint(monkeypatch):

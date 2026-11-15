@@ -99,7 +99,8 @@ def result_payload(var_id: str, s, p_adj: float | None = None, r: dict | None = 
 @app.get("/api/catalog")
 def catalog():
     return {"catalog": CAT, "places": PLACES,
-            "cases": {k: {kk: c[kk] for kk in ("title", "subtitle", "intro")} for k, c in CASES.items()}}
+            "cases": {k: {**{kk: c[kk] for kk in ("title", "subtitle", "intro")}, "vars": list(c["files"])}
+                      for k, c in CASES.items()}}
 
 
 @lru_cache(maxsize=8)

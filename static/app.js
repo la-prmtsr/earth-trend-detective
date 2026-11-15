@@ -53,6 +53,9 @@ const I18N = {
     analyzeLive: "Analyze Live",
     analyzing: "Analyzing...",
     inCaseFiles: "In case files",
+    seeCase1: "See in Case 1 →",
+    seeCase2: "See in Case 2 →",
+    comingSoon: "Coming soon",
     noMatch: "No variable in the catalog matches this combination yet.",
     quickGuideLabel: "Quick guide:",
     quickGuideText: "Check the 10-year change first, then see if the p-value is below 0.05 to know if it is real.",
@@ -131,6 +134,9 @@ const I18N = {
     analyzeLive: "Canlı Analiz Et",
     analyzing: "Analiz ediliyor...",
     inCaseFiles: "Vaka dosyalarında",
+    seeCase1: "Vaka 1'de gör →",
+    seeCase2: "Vaka 2'de gör →",
+    comingSoon: "Yakında",
     noMatch: "Bu kombinasyonla eşleşen bir değişken henüz katalogda yok.",
     quickGuideLabel: "Hızlı rehber:",
     quickGuideText: "Önce 10 yıllık değişime bakın, ardından değişimin gerçek olup olmadığını görmek için p-değerinin 0.05 altında olup olmadığını kontrol edin.",
@@ -650,6 +656,19 @@ function trendApp() {
 
     open(r) {
       this.sheet = r;
+    },
+
+    // Which case file (case1 / case2) holds this variable; null if none yet.
+    caseOf(varId) {
+      for (const [k, c] of Object.entries(this.cases || {})) {
+        if ((c.vars || []).includes(varId)) return k;
+      }
+      return null;
+    },
+
+    openCase(caseId) {
+      this.go(caseId);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     },
 
     liveVars() {

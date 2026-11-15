@@ -298,8 +298,12 @@
                     <span x-text="busy ? t('analyzing') : t('analyzeLive')"></span>
                   </button>
                 </template>
-                <template x-if="!v.power_param">
-                  <span class="tag" x-text="t('inCaseFiles')"></span>
+                <template x-if="!v.power_param && caseOf(v.id)">
+                  <button class="btn sm ghost" @click="openCase(caseOf(v.id))"
+                          x-text="t(caseOf(v.id) === 'case1' ? 'seeCase1' : 'seeCase2')"></button>
+                </template>
+                <template x-if="!v.power_param && !caseOf(v.id)">
+                  <span class="tag" x-text="t('comingSoon')"></span>
                 </template>
               </div>
             </template>
