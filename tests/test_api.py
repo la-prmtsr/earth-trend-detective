@@ -118,3 +118,38 @@ def test_place_name_for_custom_coordinates(monkeypatch):
     server._place_name.cache_clear()
     assert TestClient(server.app).get("/api/place", params={"lat": 1.0, "lon": 2.0}).json()["name"] is None
     server._place_name.cache_clear()
+
+
+def test_place_search(monkeypatch):
+    hits = [{"name": "Sapanca", "region": "Sakarya, Türkiye", "kind": "town", "lat": 40.69, "lon": 30.27, "scale": "ok"}]
+    monkeypatch.setattr(server, "geocode_search", lambda q, lang: hits)
+    server._search.cache_clear()
+    r = TestClient(server.app).get("/api/geocode", params={"q": "Sapanca", "lang": "tr"}).json()
+    assert r["results"] == hits
+    assert TestClient(server.app).get("/api/geocode", params={"q": "a"}).json()["results"] == []
+
+    def offline(*a):
+        raise OSError("no network")
+    monkeypatch.setattr(server, "geocode_search", offline)
+    server._search.cache_clear()
+    r = TestClient(server.app).get("/api/geocode", params={"q": "Konya"}).json()
+    assert r["results"] == [] and r["error"] is True
+    server._search.cache_clear()
+
+
+def test_place_search_drops_streets_and_marks_large_areas(monkeypatch):
+    import core.data_sources as ds
+
+    class Resp:
+        def raise_for_status(self): pass
+        def json(self):
+            return [
+                {"name": "Türkiye", "place_rank": 4, "category": "boundary", "addresstype": "country", "lat": "39", "lon": "35", "address": {"country": "Türkiye"}},
+                {"name": "Sapanca", "place_rank": 16, "category": "boundary", "addresstype": "town", "lat": "40.69", "lon": "30.27", "address": {"province": "Sakarya", "country": "Türkiye"}},
+                {"name": "Atatürk Caddesi", "place_rank": 26, "category": "highway", "addresstype": "road", "lat": "40.7", "lon": "30.3", "address": {}},
+                {"name": "Sapanca Gölü", "place_rank": 22, "category": "natural", "addresstype": "water", "lat": "40.72", "lon": "30.25", "address": {"province": "Sakarya", "country": "Türkiye"}},
+            ]
+    monkeypatch.setattr(ds.requests, "get", lambda *a, **k: Resp())
+    out = ds.geocode_search("x")
+    assert [o["name"] for o in out] == ["Türkiye", "Sapanca", "Sapanca Gölü"]
+    assert out[0]["scale"] == "large" and out[1]["scale"] == "ok" and out[2]["scale"] == "ok"

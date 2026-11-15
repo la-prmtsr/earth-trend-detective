@@ -106,3 +106,37 @@ def reverse_geocode(lat: float, lon: float, lang: str = "en") -> str | None:
     region = a.get("province") or a.get("state") or a.get("region")
     parts = [x for x in (local, region, a.get("country")) if x]
     return ", ".join(dict.fromkeys(parts)) or None
+
+
+NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
+NATURAL = {"natural", "water", "waterway", "landuse", "leisure"}
+
+
+def geocode_search(q: str, lang: str = "en", limit: int = 5) -> list[dict]:
+    """Find places by name (OpenStreetMap Nominatim). Our grids are ~25-50 km, so a city or district is the
+    right size: streets, buildings and neighbourhoods are left out, and very large areas are marked 'large'."""
+    r = requests.get(NOMINATIM_SEARCH_URL, params={"format": "jsonv2", "q": q, "limit": 15, "addressdetails": 1,
+                                                   "accept-language": lang},
+                     headers={"User-Agent": "EarthTrendDetective/1.0 (NASA Space Apps 2026 student project)"},
+                     timeout=8)
+    r.raise_for_status()
+    out, seen = [], set()
+    for x in r.json():
+        rank = int(x.get("place_rank") or 30)
+        natural = x.get("category") in NATURAL
+        if rank >= 21 and not natural:
+            continue  # street, building, neighbourhood: smaller than one data cell
+        a = x.get("address", {})
+        name = x.get("name") or x.get("display_name", "").split(",")[0]
+        region = ", ".join(dict.fromkeys(v for v in (a.get("province") or a.get("state"), a.get("country")) if v))
+        kind = x.get("addresstype") or x.get("type") or ""
+        key = (name, region, kind)
+        if not name or key in seen:
+            continue
+        seen.add(key)
+        out.append({"name": name, "region": region, "kind": kind,
+                    "lat": round(float(x["lat"]), 2), "lon": round(float(x["lon"]), 2),
+                    "scale": "large" if rank <= 10 and not natural else "ok"})
+        if len(out) >= limit:
+            break
+    return out

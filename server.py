@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from core.config import CASES, CONVERT, PLACES
-from core.data_sources import fetch_power, load_giovanni_csv, load_power_cache, reverse_geocode
+from core.data_sources import fetch_power, load_giovanni_csv, load_power_cache, reverse_geocode, geocode_search
 from core.explain import explain, explain_tr, naive_vs_correct, naive_vs_correct_tr
 from core.stats_engine import analyze, fdr_adjust
 
@@ -181,6 +181,23 @@ def place(lat: float, lon: float, lang: str = "en"):
     except Exception:
         name = None
     return {"name": name, "source": "OpenStreetMap"}
+
+
+@lru_cache(maxsize=256)
+def _search(q: str, lang: str):
+    return geocode_search(q, lang)
+
+
+@app.get("/api/geocode")
+def geocode(q: str, lang: str = "en"):
+    """Place search for the Explore screen (OpenStreetMap). Never fails: empty list if offline."""
+    q = q.strip()[:80]
+    if len(q) < 2:
+        return {"results": [], "source": "OpenStreetMap"}
+    try:
+        return {"results": _search(q.lower(), "tr" if lang == "tr" else "en"), "source": "OpenStreetMap"}
+    except Exception:
+        return {"results": [], "error": True, "source": "OpenStreetMap"}
 
 
 @app.get("/")

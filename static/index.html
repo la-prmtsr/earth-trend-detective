@@ -178,23 +178,75 @@
             </div>
 
             <div class="grid2 field">
-              <div>
+              <div x-data="{ slot: 'a' }">
                 <label class="label" x-text="t('cmpStep2')"></label>
-                <select class="input" x-model="cmp.a">
+                <select class="input" x-model="cmp.a" @change="cmp.results = []">
                   <template x-for="(p, k) in places" :key="k">
                     <option :value="k" x-text="p.name" :selected="k === cmp.a"></option>
                   </template>
+                  <option value="custom" x-text="t('searchOther')" :selected="cmp.a === 'custom'"></option>
                 </select>
+                <div class="place-search" x-show="cmp[slot] === 'custom'">
+                  <form class="search-row" @submit.prevent="cmpSearch(slot)">
+                    <input class="input" type="search" x-model="cmp.s[slot].q" :placeholder="t('searchPh')" maxlength="80">
+                    <button class="btn" type="submit" :disabled="cmp.s[slot].state === 'searching' || cmp.s[slot].q.trim().length < 2">
+                      <span x-html="icon('search', 15)"></span><span x-text="t('searchBtn')"></span>
+                    </button>
+                  </form>
+                  <div class="search-results" x-show="cmp.s[slot].results.length">
+                    <template x-for="(r, i) in cmp.s[slot].results" :key="i">
+                      <button type="button" class="result-row" @click="cmpChoose(slot, r)">
+                        <span x-html="icon(r.scale === 'large' ? 'map' : 'map-pin', 15)"></span>
+                        <span class="rr-text"><strong x-text="r.name"></strong>
+                          <small x-text="kindName(r.kind) + (r.region ? ' · ' + r.region : '')"></small></span>
+                      </button>
+                    </template>
+                  </div>
+                  <p class="search-msg" x-show="cmp.s[slot].state === 'none'" x-text="t('searchNone')"></p>
+                  <p class="search-msg" x-show="cmp.s[slot].state === 'error'" x-text="t('searchError')"></p>
+                  <div class="place-found" x-show="cmp.custom[slot]">
+                    <span x-html="icon('map-pin', 15)"></span>
+                    <strong x-text="cmp.custom[slot]?.name"></strong>
+                    <p class="pf-warn" x-show="cmp.custom[slot]?.scale === 'large'" x-text="t('tooLarge')"></p>
+                  </div>
+                </div>
               </div>
-              <div>
+              <div x-data="{ slot: 'b' }">
                 <label class="label" x-text="t('cmpStep3')"></label>
-                <select class="input" x-model="cmp.b">
+                <select class="input" x-model="cmp.b" @change="cmp.results = []">
                   <template x-for="(p, k) in places" :key="k">
                     <option :value="k" x-text="p.name" :selected="k === cmp.b"></option>
                   </template>
+                  <option value="custom" x-text="t('searchOther')" :selected="cmp.b === 'custom'"></option>
                 </select>
+                <div class="place-search" x-show="cmp[slot] === 'custom'">
+                  <form class="search-row" @submit.prevent="cmpSearch(slot)">
+                    <input class="input" type="search" x-model="cmp.s[slot].q" :placeholder="t('searchPh')" maxlength="80">
+                    <button class="btn" type="submit" :disabled="cmp.s[slot].state === 'searching' || cmp.s[slot].q.trim().length < 2">
+                      <span x-html="icon('search', 15)"></span><span x-text="t('searchBtn')"></span>
+                    </button>
+                  </form>
+                  <div class="search-results" x-show="cmp.s[slot].results.length">
+                    <template x-for="(r, i) in cmp.s[slot].results" :key="i">
+                      <button type="button" class="result-row" @click="cmpChoose(slot, r)">
+                        <span x-html="icon(r.scale === 'large' ? 'map' : 'map-pin', 15)"></span>
+                        <span class="rr-text"><strong x-text="r.name"></strong>
+                          <small x-text="kindName(r.kind) + (r.region ? ' · ' + r.region : '')"></small></span>
+                      </button>
+                    </template>
+                  </div>
+                  <p class="search-msg" x-show="cmp.s[slot].state === 'none'" x-text="t('searchNone')"></p>
+                  <p class="search-msg" x-show="cmp.s[slot].state === 'error'" x-text="t('searchError')"></p>
+                  <div class="place-found" x-show="cmp.custom[slot]">
+                    <span x-html="icon('map-pin', 15)"></span>
+                    <strong x-text="cmp.custom[slot]?.name"></strong>
+                    <p class="pf-warn" x-show="cmp.custom[slot]?.scale === 'large'" x-text="t('tooLarge')"></p>
+                  </div>
+                </div>
               </div>
             </div>
+            <p class="pf-warn cmp-note" x-show="cmpTooClose()" x-text="t('cmpTooClose')"></p>
+            <p class="search-msg cmp-note" x-show="cmpIsLive() && !cmpTooClose()" x-text="t('cmpSlow')"></p>
 
             <div class="actions">
               <button class="btn" @click="compare()" :disabled="busy">
@@ -211,7 +263,7 @@
           <template x-for="(r, i) in cmp.results" :key="i">
             <article class="panel result">
               <div class="r-head">
-                <span class="r-place"><span x-html="icon('map-pin', 15)"></span><span x-text="places[i === 0 ? cmp.a : cmp.b]?.name"></span></span>
+                <span class="r-place"><span x-html="icon('map-pin', 15)"></span><span x-text="cmpPlace(i === 0 ? 'a' : 'b')?.name"></span></span>
                 <span class="status" :class="r.significant ? 'sig' : 'unc'"><i></i><span x-text="r.significant ? t('sigShort') : t('uncShort')"></span></span>
               </div>
               <div class="r-rate num" x-text="perDecade(r)"></div>
@@ -253,12 +305,32 @@
                     <span x-text="p.name"></span>
                   </button>
                 </template>
-                <button class="chip" :class="{ on: ex.place === 'custom' }" @click="ex.place = 'custom'; lookupPlace()">
-                  <span x-html="icon('compass', 15)"></span>
+                <button class="chip" :class="{ on: ex.place === 'custom' }" @click="ex.place = 'custom'">
+                  <span x-html="icon('search', 15)"></span>
                   <span x-text="t('customCoords')"></span>
                 </button>
               </div>
-              <div class="grid2 coords-row" x-show="ex.place === 'custom'">
+              <div class="place-search" x-show="ex.place === 'custom'">
+                <form class="search-row" @submit.prevent="searchPlaces()">
+                  <input class="input" type="search" x-model="q" :placeholder="t('searchPh')" maxlength="80">
+                  <button class="btn" type="submit" :disabled="searchState === 'searching' || q.trim().length < 2">
+                    <span x-html="icon('search', 15)"></span><span x-text="t('searchBtn')"></span>
+                  </button>
+                </form>
+                <div class="search-results" x-show="results.length">
+                  <template x-for="(r, i) in results" :key="i">
+                    <button type="button" class="result-row" @click="choosePlace(r)">
+                      <span x-html="icon(r.scale === 'large' ? 'map' : 'map-pin', 15)"></span>
+                      <span class="rr-text"><strong x-text="r.name"></strong>
+                        <small x-text="kindName(r.kind) + (r.region ? ' · ' + r.region : '')"></small></span>
+                    </button>
+                  </template>
+                </div>
+                <p class="search-msg" x-show="searchState === 'none'" x-text="t('searchNone')"></p>
+                <p class="search-msg" x-show="searchState === 'error'" x-text="t('searchError')"></p>
+                <button type="button" class="link-btn" @click="showCoords = !showCoords" x-text="showCoords ? t('hideCoords') : t('enterCoords')"></button>
+              </div>
+              <div class="grid2 coords-row" x-show="ex.place === 'custom' && showCoords">
                 <div>
                   <label class="label sub" x-text="t('latLabel')"></label>
                   <input class="input" type="number" step="0.01" x-model.number="ex.lat" @input="lookupPlace()">
@@ -272,6 +344,8 @@
                 <span x-html="icon('map-pin', 15)"></span>
                 <strong x-text="placeState === 'searching' ? t('placeSearching') : (placeState === 'found' ? placeLabel : t('placeUnknown'))"></strong>
                 <small x-show="placeState === 'found'" x-text="t('osmCredit')"></small>
+                <p class="pf-note" x-show="placeState === 'found'" x-text="t('cellNote')"></p>
+                <p class="pf-warn" x-show="placeState === 'found' && chosenScale === 'large'" x-text="t('tooLarge')"></p>
               </div>
             </div>
 

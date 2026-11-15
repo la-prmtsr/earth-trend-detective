@@ -45,7 +45,19 @@ const I18N = {
     exQ1: "What do you want to investigate?",
     exQ2: "Where?",
     exQ3: "What kind of place is it?",
-    customCoords: "Custom coordinates",
+    customCoords: "Other location",
+    searchPh: "Type a city or district, e.g. Sapanca",
+    searchOther: "Other location",
+    cmpPickPlace: "Choose a place from the search results first.",
+    cmpTooClose: "These two places may fall in the same ~50 km data cell, so their results will be almost the same.",
+    cmpSlow: "Live data from NASA POWER: this can take 20–40 seconds.",
+    searchBtn: "Search",
+    searchNone: "No matching city or district found. Try another spelling, or enter coordinates.",
+    searchError: "Place search is not available right now. You can enter coordinates.",
+    enterCoords: "Enter coordinates instead",
+    hideCoords: "Hide coordinates",
+    tooLarge: "This is a very large area; its centre does not represent all of it. Choose a city or district for a better result.",
+    cellNote: "The analysis represents the area of about 50 km around this point.",
     placeSearching: "Finding the place…",
     placeUnknown: "No named place here (open sea?)",
     osmCredit: "Place names © OpenStreetMap contributors",
@@ -131,7 +143,19 @@ const I18N = {
     exQ1: "Neyi araştırmak istiyorsunuz?",
     exQ2: "Nerede?",
     exQ3: "Burası nasıl bir yer?",
-    customCoords: "Özel koordinatlar",
+    customCoords: "Diğer konum",
+    searchPh: "Şehir veya ilçe yazın, örn. Sapanca",
+    searchOther: "Diğer konum",
+    cmpPickPlace: "Önce arama sonuçlarından bir yer seçin.",
+    cmpTooClose: "İki yer aynı ~50 km'lik veri hücresinde olabilir; sonuçlar neredeyse aynı çıkar.",
+    cmpSlow: "NASA POWER'dan canlı veri çekiliyor; 20–40 sn sürebilir.",
+    searchBtn: "Ara",
+    searchNone: "Eşleşen şehir veya ilçe bulunamadı. Başka bir yazım deneyin ya da koordinat girin.",
+    searchError: "Yer arama şu an kullanılamıyor. Koordinat girebilirsiniz.",
+    enterCoords: "Bunun yerine koordinat gir",
+    hideCoords: "Koordinatları gizle",
+    tooLarge: "Bu çok geniş bir alan; merkezi alanın tamamını temsil etmez. Daha doğru sonuç için şehir veya ilçe seçin.",
+    cellNote: "Analiz bu noktanın çevresindeki yaklaşık 50 km'lik alanı temsil eder.",
     placeSearching: "Yer aranıyor…",
     placeUnknown: "Burada adı bilinen bir yer yok (açık deniz olabilir)",
     osmCredit: "Yer adları © OpenStreetMap katkıcıları",
@@ -175,6 +199,16 @@ const I18N = {
     sensorsLabel: "Veri",
     methodTitle: "Yöntem",
   }
+};
+
+// Kind of place returned by the place search (OpenStreetMap "addresstype").
+const KIND_LABEL = {
+  en: { country: "country", state: "region", region: "region", province: "province", county: "district", district: "district",
+        city: "city", town: "town", village: "village", municipality: "municipality", water: "water body", lake: "lake",
+        peak: "peak", mountain: "mountain", island: "island", forest: "forest" },
+  tr: { country: "ülke", state: "bölge", region: "bölge", province: "il", county: "ilçe", district: "ilçe",
+        city: "şehir", town: "ilçe", village: "köy", municipality: "belediye", water: "su kütlesi", lake: "göl",
+        peak: "zirve", mountain: "dağ", island: "ada", forest: "orman" },
 };
 
 const VAR_TR = {
@@ -346,9 +380,12 @@ function trendApp() {
     busy: false,
     error: "",
     sheet: null,
-    cmp: { var: "t2m", a: "rize", b: "konya", results: [] },
+    cmp: { var: "t2m", a: "rize", b: "konya", results: [],
+           custom: { a: null, b: null },
+           s: { a: { q: "", results: [], state: "" }, b: { q: "", results: [], state: "" } } },
     ex: { topic: "water", place: "sapanca", type: "lake_basin", lat: 40.69, lon: 30.27 },
     placeLabel: null, placeState: "", _placeTimer: null,
+    q: "", results: [], searchState: "", showCoords: false, chosenScale: "",
 
     t(key) {
       return (I18N[this.lang] && I18N[this.lang][key]) || I18N.en[key] || key;
@@ -655,9 +692,38 @@ function trendApp() {
       Object.assign(this.ex, { place: k, lat: p.lat, lon: p.lon, type: p.type });
     },
 
+    // "Another place": search by name, the user picks one result (never a free-text question).
+    async searchPlaces() {
+      const q = this.q.trim();
+      if (q.length < 2) return;
+      this.searchState = "searching";
+      this.results = [];
+      try {
+        const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}&lang=${this.lang}`).then(x => x.json());
+        this.results = r.results || [];
+        this.searchState = r.error ? "error" : (this.results.length ? "" : "none");
+      } catch (e) {
+        this.searchState = "error";
+      }
+    },
+
+    kindName(k) {
+      return (KIND_LABEL[this.lang] || KIND_LABEL.en)[k] || k;
+    },
+
+    choosePlace(r) {
+      Object.assign(this.ex, { place: "custom", lat: r.lat, lon: r.lon });
+      this.placeLabel = r.region && r.region !== r.name ? `${r.name}, ${r.region}` : r.name;
+      this.placeState = "found";
+      this.chosenScale = r.scale;
+      this.results = [];
+      this.searchState = "";
+    },
+
     // Custom coordinates: show the place name (OpenStreetMap via our server), with a short delay while typing.
     lookupPlace() {
       clearTimeout(this._placeTimer);
+      this.chosenScale = "";
       const lat = Number(this.ex.lat), lon = Number(this.ex.lon);
       if (this.ex.place !== "custom" || !Number.isFinite(lat) || !Number.isFinite(lon)) return;
       this.placeState = "searching";
@@ -690,13 +756,56 @@ function trendApp() {
       }
     },
 
+    // Two regions: a preset place or any place found by search (same search as Explore).
+    cmpPlace(slot) {
+      const k = this.cmp[slot];
+      return k === "custom" ? this.cmp.custom[slot] : this.places[k];
+    },
+
+    async cmpSearch(slot) {
+      const st = this.cmp.s[slot];
+      const q = st.q.trim();
+      if (q.length < 2) return;
+      st.state = "searching";
+      st.results = [];
+      try {
+        const r = await fetch(`/api/geocode?q=${encodeURIComponent(q)}&lang=${this.lang}`).then(x => x.json());
+        st.results = r.results || [];
+        st.state = r.error ? "error" : (st.results.length ? "" : "none");
+      } catch (e) {
+        st.state = "error";
+      }
+    },
+
+    cmpChoose(slot, r) {
+      const name = r.region && r.region !== r.name ? `${r.name}, ${r.region}` : r.name;
+      this.cmp.custom[slot] = { name, lat: r.lat, lon: r.lon, scale: r.scale };
+      this.cmp.s[slot].results = [];
+      this.cmp.s[slot].state = "";
+      this.cmp.results = [];
+    },
+
+    // POWER cells are 0.5° x 0.625°: closer than that, both places read (almost) the same data.
+    cmpTooClose() {
+      const a = this.cmpPlace("a"), b = this.cmpPlace("b");
+      return !!(a && b && Math.abs(a.lat - b.lat) < 0.5 && Math.abs(a.lon - b.lon) < 0.625);
+    },
+
+    cmpIsLive() {
+      return this.cmp.a === "custom" || this.cmp.b === "custom";
+    },
+
     async compare() {
-      this.busy = true;
       this.error = "";
+      const a = this.cmpPlace("a");
+      const b = this.cmpPlace("b");
+      if (!a || !b) {
+        this.error = this.t("cmpPickPlace");
+        return;
+      }
+      this.busy = true;
       this.cmp.results = [];
       try {
-        const a = this.places[this.cmp.a];
-        const b = this.places[this.cmp.b];
         this.cmp.results = await Promise.all([
           this.fetchPower(this.cmp.var, a.lat, a.lon),
           this.fetchPower(this.cmp.var, b.lat, b.lon),

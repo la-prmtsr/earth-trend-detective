@@ -267,7 +267,10 @@ function earthFocus(app) {
   if (tab === "case1") marks = [{ lon: 30.27, lat: 40.69, label: "Sapanca" }];
   else if (tab === "case2") marks = [{ lon: 28.98, lat: 41.01, label: "Istanbul" }];
   else if (tab === "compare") {
-    [app.cmp.a, app.cmp.b].forEach(k => { const p = P[k]; if (p) marks.push({ lon: +p.lon, lat: +p.lat, label: p.name }); });
+    ["a", "b"].forEach(slot => {
+      const p = app.cmpPlace ? app.cmpPlace(slot) : P[app.cmp[slot]];
+      if (p) marks.push({ lon: +p.lon, lat: +p.lat, label: p.name.split(",")[0] });
+    });
   } else {
     const lat = Number(app.ex.lat), lon = Number(app.ex.lon);
     const p = app.ex.place !== "custom" ? P[app.ex.place] : null;
